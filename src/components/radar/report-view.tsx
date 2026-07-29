@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { RadarChart } from "@/components/radar/radar-chart";
 import { ReportActions } from "@/components/radar/report-actions";
+import { SaveReportButton } from "@/components/radar/save-report-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +98,7 @@ export function ReportView({ initialReport }: { initialReport: LoveReport & { id
             <TrustAndTrend report={report} />
             <RelationshipMeters meters={meters} />
             <ScoreBreakdown report={report} />
+            <SaveReportButton reportId={report.id} />
             {unlocked ? <ReportActions report={report} /> : <PremiumUpgradeCard reportId={report.id} onUnlocked={setReport} />}
           </section>
 

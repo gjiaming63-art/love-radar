@@ -24,6 +24,7 @@ export async function consumeScreenshotQuota(
   clientKey: string,
   limit: number,
   requestedImages = 1,
+  userId?: string,
 ): Promise<ScreenshotQuotaResult> {
   if (!Number.isFinite(limit) || limit <= 0) {
     return {
@@ -49,7 +50,7 @@ export async function consumeScreenshotQuota(
   await ensureScreenshotUsageSchema();
 
   if (needsPaidTier) {
-    return consumePaidQuota(db, clientHash, limit, limit);
+    return consumePaidQuota(db, clientHash, limit, limit, userId);
   }
 
   const result = await db.query<{ count: number }>(
@@ -75,7 +76,7 @@ export async function consumeScreenshotQuota(
       limit,
       tier: "free",
       maxImagesPerUse: freeMaxImagesPerUse,
-      paidRemaining: await getPaidRemaining(clientHash),
+      paidRemaining: await getPaidRemaining(clientHash, userId),
     };
   }
 
@@ -84,7 +85,7 @@ export async function consumeScreenshotQuota(
     [usageDate, clientHash],
   );
   const count = Number(existing.rows[0]?.count ?? limit);
-  return consumePaidQuota(db, clientHash, limit, count);
+  return consumePaidQuota(db, clientHash, limit, count, userId);
 }
 
 async function consumePaidQuota(
@@ -92,6 +93,7 @@ async function consumePaidQuota(
   clientHash: string,
   limit: number,
   freeCount: number,
+  userId?: string,
 ): Promise<ScreenshotQuotaResult> {
   const paid = await db.query<{ remaining_uses: number }>(
     `
@@ -101,7 +103,7 @@ async function consumePaidQuota(
       WHERE id = (
         SELECT id
         FROM screenshot_entitlements
-        WHERE client_hash = $1
+        WHERE (client_hash = $1 OR ($2::text IS NOT NULL AND user_id = $2))
           AND remaining_uses > 0
           AND expires_at > NOW()
         ORDER BY expires_at ASC, created_at ASC
@@ -110,7 +112,7 @@ async function consumePaidQuota(
       )
       RETURNING remaining_uses
     `,
-    [clientHash],
+    [clientHash, userId || null],
   );
 
   if (paid.rowCount && paid.rows[0]) {
@@ -142,6 +144,13 @@ async function ensureScreenshotUsageSchema() {
   screenshotUsageSchemaReady =
     screenshotUsageSchemaReady ??
     db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_login_at TIMESTAMPTZ
+      );
+
       CREATE TABLE IF NOT EXISTS screenshot_usage (
         usage_date DATE NOT NULL,
         client_hash TEXT NOT NULL,
@@ -159,20 +168,26 @@ async function ensureScreenshotUsageSchema() {
         remaining_uses INTEGER NOT NULL DEFAULT 0,
         max_images_per_use INTEGER NOT NULL DEFAULT 8,
         source_code TEXT,
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         expires_at TIMESTAMPTZ NOT NULL
       );
 
+      ALTER TABLE screenshot_entitlements
+        ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+
       CREATE INDEX IF NOT EXISTS screenshot_entitlements_client_hash_idx
         ON screenshot_entitlements (client_hash);
+      CREATE INDEX IF NOT EXISTS screenshot_entitlements_user_id_idx
+        ON screenshot_entitlements (user_id);
       CREATE INDEX IF NOT EXISTS screenshot_entitlements_expires_at_idx
         ON screenshot_entitlements (expires_at);
     `).then(() => undefined);
   await screenshotUsageSchemaReady;
 }
 
-export async function grantScreenshotEntitlement(clientKey: string, sourceCode: string) {
+export async function grantScreenshotEntitlement(clientKey: string, sourceCode: string, userId?: string) {
   const db = getPool();
   const clientHash = hashClientKey(clientKey);
   const expiresAt = new Date();
@@ -191,25 +206,29 @@ export async function grantScreenshotEntitlement(clientKey: string, sourceCode: 
   await db.query(
     `
       INSERT INTO screenshot_entitlements
-        (id, client_hash, remaining_uses, max_images_per_use, source_code, expires_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
+        (id, client_hash, remaining_uses, max_images_per_use, source_code, user_id, expires_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `,
-    [randomUUID(), clientHash, paidGrantUses, paidMaxImagesPerUse, sourceCode, expiresAt],
+    [randomUUID(), clientHash, paidGrantUses, paidMaxImagesPerUse, sourceCode, userId || null, expiresAt],
   );
   const result = await db.query<{ total_remaining: number }>(
     `
       SELECT COALESCE(SUM(remaining_uses), 0)::int AS total_remaining
       FROM screenshot_entitlements
-      WHERE client_hash = $1
+      WHERE (client_hash = $1 OR ($2::text IS NOT NULL AND user_id = $2))
         AND remaining_uses > 0
         AND expires_at > NOW()
     `,
-    [clientHash],
+    [clientHash, userId || null],
   );
   return { remainingUses: Number(result.rows[0]?.total_remaining ?? paidGrantUses), expiresAt };
 }
 
 export async function getScreenshotQuotaStatus(clientKey: string, limit: number) {
+  return getScreenshotQuotaStatusForUser(clientKey, limit);
+}
+
+export async function getScreenshotQuotaStatusForUser(clientKey: string, limit: number, userId?: string) {
   const usageDate = getShanghaiUsageDate();
   const clientHash = hashClientKey(clientKey);
   const db = getPool();
@@ -234,12 +253,12 @@ export async function getScreenshotQuotaStatus(clientKey: string, limit: number)
         COALESCE((
           SELECT SUM(remaining_uses)
           FROM screenshot_entitlements
-          WHERE client_hash = $2
+          WHERE (client_hash = $2 OR ($3::text IS NOT NULL AND user_id = $3))
             AND remaining_uses > 0
             AND expires_at > NOW()
         ), 0)::int AS paid_remaining
     `,
-    [usageDate, clientHash],
+    [usageDate, clientHash, userId || null],
   );
   const freeCount = Number(result.rows[0]?.free_count ?? 0);
   const paidRemaining = Number(result.rows[0]?.paid_remaining ?? 0);
@@ -336,18 +355,18 @@ export function hashClientKey(clientKey: string) {
   return createHash("sha256").update(`${salt}:${clientKey}`).digest("hex");
 }
 
-async function getPaidRemaining(clientHash: string) {
+async function getPaidRemaining(clientHash: string, userId?: string) {
   const db = getPool();
   if (!db) return getMemoryPaidRemaining(clientHash);
   const result = await db.query<{ remaining: number }>(
     `
       SELECT COALESCE(SUM(remaining_uses), 0)::int AS remaining
       FROM screenshot_entitlements
-      WHERE client_hash = $1
+      WHERE (client_hash = $1 OR ($2::text IS NOT NULL AND user_id = $2))
         AND remaining_uses > 0
         AND expires_at > NOW()
     `,
-    [clientHash],
+    [clientHash, userId || null],
   );
   return Number(result.rows[0]?.remaining ?? 0);
 }

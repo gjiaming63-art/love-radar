@@ -123,7 +123,7 @@ export async function exportUnusedCodesCsv() {
   );
 }
 
-export async function redeemUnlockCode(code: string, reportId: string, clientKey?: string) {
+export async function redeemUnlockCode(code: string, reportId: string, clientKey?: string, userId?: string) {
   const normalizedCode = normalizeCode(code);
   if (!/^LR-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
     return { success: false, error: "兑换码格式不正确，请检查后重试。" };
@@ -146,12 +146,12 @@ export async function redeemUnlockCode(code: string, reportId: string, clientKey
 
     const updatedCode = await client.query(
       `UPDATE unlock_codes
-       SET used = TRUE, used_at = NOW(), report_id = $2
+       SET used = TRUE, used_at = NOW(), report_id = $2, user_id = $3
        WHERE code = $1
          AND used = FALSE
          AND (expires_at IS NULL OR expires_at > NOW())
        RETURNING id`,
-      [normalizedCode, reportId],
+      [normalizedCode, reportId, userId || null],
     );
 
     if (!updatedCode.rows[0]) {
@@ -168,15 +168,18 @@ export async function redeemUnlockCode(code: string, reportId: string, clientKey
       return { success: false, error: "兑换码暂时不可用，请稍后重试。" };
     }
 
-    await client.query("UPDATE love_reports SET is_paid = TRUE, paid_at = NOW() WHERE id = $1", [reportId]);
+    await client.query(
+      "UPDATE love_reports SET is_paid = TRUE, paid_at = NOW(), user_id = COALESCE(user_id, $2) WHERE id = $1",
+      [reportId, userId || null],
+    );
     if (clientKey) {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
       await client.query(
         `INSERT INTO screenshot_entitlements
-          (id, client_hash, remaining_uses, max_images_per_use, source_code, expires_at)
-         VALUES ($1, $2, 10, 8, $3, $4)`,
-        [randomUUID(), hashClientKey(clientKey), normalizedCode, expiresAt],
+          (id, client_hash, remaining_uses, max_images_per_use, source_code, user_id, expires_at)
+         VALUES ($1, $2, 10, 8, $3, $4, $5)`,
+        [randomUUID(), hashClientKey(clientKey), normalizedCode, userId || null, expiresAt],
       );
     }
     await client.query("COMMIT");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { redeemUnlockCode } from "@/lib/unlock-codes";
 import { getReport } from "@/lib/reports";
 import { getClientKey } from "@/lib/screenshot-usage";
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "请填写兑换码和报告 ID。" }, { status: 400 });
     }
 
-    const result = await redeemUnlockCode(code, reportId, getClientKey(request));
+    const user = await getCurrentUser();
+    const result = await redeemUnlockCode(code, reportId, getClientKey(request), user?.id);
     if (!result.success) {
       return NextResponse.json(result, { status: 400 });
     }

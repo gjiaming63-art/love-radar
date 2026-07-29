@@ -18,7 +18,12 @@ export default function Home() {
             </span>
             Love Radar
           </div>
-          <Badge>娱乐分析</Badge>
+          <div className="flex items-center gap-2">
+            <Link href="/me" className="text-sm text-muted-foreground transition hover:text-foreground">
+              我的
+            </Link>
+            <Badge>娱乐分析</Badge>
+          </div>
         </header>
 
         <div className="grid gap-10 pb-8 pt-12 md:grid-cols-[1.05fr_0.95fr] md:items-center">

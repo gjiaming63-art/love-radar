@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { parseChatImagesWithQwen, parsedMessagesToChatText } from "@/lib/chat-image-parser";
-import { consumeScreenshotQuota, getClientKey, getScreenshotQuotaStatus } from "@/lib/screenshot-usage";
+import { consumeScreenshotQuota, getClientKey, getScreenshotQuotaStatusForUser } from "@/lib/screenshot-usage";
 import type { ParsedChatImageResult } from "@/types/report";
 
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
     }
 
     const clientKey = getClientKey(request);
-    const quotaStatus = await getScreenshotQuotaStatus(clientKey, dailyLimit);
+    const user = await getCurrentUser();
+    const quotaStatus = await getScreenshotQuotaStatusForUser(clientKey, dailyLimit, user?.id);
     const maxImageCount = quotaStatus.maxImagesPerUse;
 
     if (images.length > maxImageCount) {
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const quota = await consumeScreenshotQuota(clientKey, dailyLimit, images.length);
+    const quota = await consumeScreenshotQuota(clientKey, dailyLimit, images.length, user?.id);
     if (!quota.ok) {
       return NextResponse.json(
         {
