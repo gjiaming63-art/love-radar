@@ -10,7 +10,7 @@
 - 截图上传解析：使用视觉模型识别聊天气泡左右关系
 - 文本粘贴分析：直接分析微信聊天记录文本
 - 可分享报告页：综合评分、雷达图、关系进度、证据、建议
-- 高级版解锁：卡密兑换、面包多购买链接、兑换码领取页
+- 高级版解锁：卡密兑换、老用户福利码、面包多购买链接、兑换码领取页
 - 截图额度控制：免费每日次数限制，高级版额外额度
 - 轻登录：手机号验证码登录，保存报告和高级截图权益
 - 管理后台：生成兑换码、导出 CSV、查看基础转化指标
@@ -58,6 +58,7 @@ REPORT_TTL_DAYS=30
 
 NEXT_PUBLIC_MBD_BUY_URL=https://your-mianbaoduo-product-url
 ADMIN_PASSWORD=change_me
+PROMO_INVITE_CODE=LOVERADAR2026
 
 AUTH_SESSION_SECRET=change_me_to_a_long_random_string
 ALIYUN_SMS_ACCESS_KEY_ID=your_aliyun_sms_access_key_id

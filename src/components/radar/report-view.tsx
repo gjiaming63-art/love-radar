@@ -235,7 +235,7 @@ function UnlockControls({
         error?: string;
       };
       if (!response.ok || !payload.success || !payload.report) throw new Error(payload.error || "兑换失败");
-      setMessage("解锁成功：完整报告已开启，并已获得 10 次高级截图额度。");
+      setMessage("解锁成功：完整报告已开启。");
       onUnlocked(payload.report);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "兑换失败，请稍后重试。");
@@ -262,7 +262,7 @@ function UnlockControls({
           ￥6.9 解锁高级版
         </Button>
         <Button type="button" variant="secondary" onClick={() => setShowInput((value) => !value)}>
-          我已有兑换码
+          我有兑换码 / 福利码
         </Button>
       </div>
       {showInput ? (
@@ -270,7 +270,7 @@ function UnlockControls({
           <input
             value={code}
             onChange={(event) => setCode(event.target.value.toUpperCase())}
-            placeholder="请输入兑换码，例如 LR-A8K2-P9Q7"
+            placeholder="请输入兑换码或老用户福利码"
             className="min-h-11 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
           />
           <Button type="button" onClick={redeem} disabled={loading || !code.trim()}>

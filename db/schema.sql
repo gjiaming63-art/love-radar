@@ -84,6 +84,20 @@ CREATE TABLE IF NOT EXISTS code_claims (
 CREATE INDEX IF NOT EXISTS code_claims_code_id_idx ON code_claims (code_id);
 CREATE INDEX IF NOT EXISTS code_claims_claimed_at_idx ON code_claims (claimed_at);
 
+CREATE TABLE IF NOT EXISTS promo_invite_uses (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  client_hash TEXT NOT NULL UNIQUE,
+  report_id TEXT NOT NULL REFERENCES love_reports(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS promo_invite_uses_code_idx ON promo_invite_uses (code);
+CREATE INDEX IF NOT EXISTS promo_invite_uses_report_id_idx ON promo_invite_uses (report_id);
+CREATE INDEX IF NOT EXISTS promo_invite_uses_user_id_idx ON promo_invite_uses (user_id);
+CREATE INDEX IF NOT EXISTS promo_invite_uses_used_at_idx ON promo_invite_uses (used_at);
+
 CREATE TABLE IF NOT EXISTS screenshot_usage (
   usage_date DATE NOT NULL,
   client_hash TEXT NOT NULL,

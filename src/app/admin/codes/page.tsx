@@ -12,6 +12,7 @@ type CodeStats = {
   used: number;
   claimed: number;
   claimable: number;
+  promoUses: number;
 };
 
 type ProductStats = {
@@ -138,12 +139,13 @@ export default function AdminCodesPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-3 sm:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-6">
           <StatCard label="兑换码总数" value={stats?.total ?? 0} />
           <StatCard label="未使用" value={stats?.unused ?? 0} />
           <StatCard label="已使用" value={stats?.used ?? 0} />
           <StatCard label="已发放" value={stats?.claimed ?? 0} />
           <StatCard label="可发放" value={stats?.claimable ?? 0} />
+          <StatCard label="福利码使用" value={stats?.promoUses ?? 0} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-4">
