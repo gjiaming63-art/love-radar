@@ -155,7 +155,7 @@ export const personalityMeta: Record<
   { name: string; keywords: string[]; summary: string; strength: string; caution: string; male: string[]; female: string[] }
 > = {
   "slow-observer": {
-    name: "🕷️ Peter Parker / 紫霞仙子型",
+    name: "🕷️慢热观察员",
     keywords: ["慢热", "守护", "后知后觉"],
     summary: "你不是没有感觉，只是习惯先观察，再确认自己的心意。",
     strength: "一旦认定，你的在意通常很稳定，也愿意默默守护。",
@@ -164,7 +164,7 @@ export const personalityMeta: Record<
     female: ["紫霞仙子"],
   },
   "empathy-investor": {
-    name: "🌙 Jack / 林黛玉型",
+    name: "🌙高共情投入者",
     keywords: ["敏感", "细腻", "容易感受到情绪"],
     summary: "你很容易捕捉到关系里的细小变化，也愿意认真接住对方的情绪。",
     strength: "共情力强，能让喜欢的人感到被理解、被重视。",
@@ -173,7 +173,7 @@ export const personalityMeta: Record<
     female: ["林黛玉"],
   },
   "romantic-doer": {
-    name: "❤️ 浪漫行动派",
+    name: "❤️浪漫行动派",
     keywords: ["表达", "付出", "仪式感"],
     summary: "喜欢一个人时，你更愿意用具体行动把心意送到对方面前。",
     strength: "热烈、主动，能把平淡的相处变成有记忆点的时刻。",
@@ -182,7 +182,7 @@ export const personalityMeta: Record<
     female: [],
   },
   "boundary-keeper": {
-    name: "🛡️ 尼克 / 甄嬛型",
+    name: "🛡️边界感守门人",
     keywords: ["清醒", "自我", "需要确定关系"],
     summary: "你可以很爱一个人，但不会轻易放弃自己的节奏和边界。",
     strength: "清醒且有分寸，遇到问题更愿意推动关系回到现实。",
@@ -191,7 +191,7 @@ export const personalityMeta: Record<
     female: ["甄嬛"],
   },
   "ambiguity-radar": {
-    name: "📡 沸羊羊 / 黄蓉型",
+    name: "📡暧昧雷达型",
     keywords: ["观察", "捕捉信号", "容易脑补"],
     summary: "一句话、一个停顿、一次已读，都可能被你捕捉成关系信号。",
     strength: "观察敏锐，常常能比别人更早发现关系里的变化。",
