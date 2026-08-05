@@ -206,6 +206,63 @@ export async function redeemUnlockCode(code: string, reportId: string, clientKey
   }
 }
 
+export async function redeemPersonalityCode(code: string, clientKey?: string, userId?: string) {
+  const normalizedCode = normalizeCode(code);
+  if (!/^LR-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
+    return { success: false, error: "兑换码格式不正确，请检查后重试。" };
+  }
+
+  await ensureCommerceSchema();
+  const db = requireDb();
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const updatedCode = await client.query(
+      `UPDATE unlock_codes
+       SET used = TRUE, used_at = NOW(), user_id = $2
+       WHERE code = $1
+         AND used = FALSE
+         AND report_id IS NULL
+         AND (expires_at IS NULL OR expires_at > NOW())
+       RETURNING id`,
+      [normalizedCode, userId || null],
+    );
+
+    if (!updatedCode.rows[0]) {
+      const existing = await client.query("SELECT used, expires_at FROM unlock_codes WHERE code = $1", [normalizedCode]);
+      await client.query("ROLLBACK");
+      const row = existing.rows[0];
+      if (!row) return { success: false, error: "兑换码不存在，请检查后重试。" };
+      if (row.used) return { success: false, error: "兑换码已被使用。" };
+      if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
+        return { success: false, error: "兑换码已过期。" };
+      }
+      return { success: false, error: "兑换码暂时不可用于人格分析，请联系客服。" };
+    }
+
+    if (clientKey) {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      await client.query(
+        `INSERT INTO screenshot_entitlements
+          (id, client_hash, remaining_uses, max_images_per_use, source_code, user_id, expires_at)
+         VALUES ($1, $2, 10, 8, $3, $4, $5)`,
+        [randomUUID(), hashClientKey(clientKey), normalizedCode, userId || null, expiresAt],
+      );
+    }
+
+    await client.query("COMMIT");
+    return { success: true };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    console.error("redeem personality code failed:", error);
+    return { success: false, error: "兑换失败，请稍后重试。" };
+  } finally {
+    client.release();
+  }
+}
+
 async function redeemPromoInviteCode(code: string, reportId: string, clientKey?: string, userId?: string) {
   if (!reportId.trim()) return { success: false, error: "缺少报告 ID。" };
   if (!clientKey) return { success: false, error: "暂时无法识别当前设备，请稍后再试。" };

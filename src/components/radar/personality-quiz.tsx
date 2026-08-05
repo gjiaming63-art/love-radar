@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BrainCircuit, Check, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, BrainCircuit, Check, Loader2, LockKeyhole, RotateCcw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -165,6 +165,33 @@ function ResultStep({
   onRestart: () => void;
 }) {
   const buyUrl = process.env.NEXT_PUBLIC_MBD_BUY_URL;
+  const [unlocked, setUnlocked] = useState(false);
+  const [showInput, setShowInput] = useState(false);
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function redeem() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/redeem-personality", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const payload = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || !payload.success) throw new Error(payload.error || "兑换失败，请稍后重试。");
+      setUnlocked(true);
+      setShowInput(false);
+      setMessage("解锁成功，深度人格分析已开启。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "兑换失败，请稍后重试。");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div className="text-center">
@@ -186,10 +213,25 @@ function ResultStep({
         <CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />你的隐藏模式</CardTitle></CardHeader>
         <CardContent className="space-y-3"><p className="text-sm leading-7 text-muted-foreground">这不是固定标签，而是你在亲密关系中更容易启动的一套反应方式。</p><div className="space-y-2">{Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([key, value]) => <div key={key} className="flex items-center gap-3 text-xs"><span className="w-28 shrink-0 text-muted-foreground">{personalityMeta[key as keyof typeof personalityMeta].name.slice(2, 10)}</span><div className="h-2 flex-1 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, value * 8)}%` }} /></div><span className="w-6 text-right font-mono text-primary">{value}</span></div>)}</div></CardContent>
       </Card>
-      <Card className="border-accent/30 bg-accent/10">
-        <CardHeader><CardTitle>想知道更深一层？</CardTitle></CardHeader>
-        <CardContent className="space-y-3"><p className="text-sm leading-6 text-muted-foreground">高级版可以查看你的情感触发点、相处盲区、适配沟通方式和专属行动建议。</p>{buyUrl ? <a href={buyUrl} target="_blank" rel="noreferrer"><Button className="w-full">￥6.9 解锁深度人格分析 <ArrowRight className="h-4 w-4" /></Button></a> : <p className="text-xs text-muted-foreground">高级版入口即将开放。</p>}</CardContent>
-      </Card>
+      {unlocked ? (
+        <Card className="border-accent/30 bg-accent/10">
+          <CardHeader><CardTitle className="flex items-center gap-2"><Check className="h-5 w-5 text-accent" />深度人格分析已解锁</CardTitle></CardHeader>
+          <CardContent className="space-y-3"><p className="text-sm leading-7 text-foreground">你在关系里最需要关注的，不是“够不够好”，而是你的投入方式有没有得到真实回应。</p><div className="rounded-md border border-accent/25 bg-background/45 p-3 text-sm leading-7 text-muted-foreground">建议把这次结果当成一面镜子：保留你的优势，同时给自己留出确认、表达和调整的空间。</div><p className="text-xs text-muted-foreground">截图高级额度也已同步开启：7 天内可使用 10 次，每次最多 8 张。</p></CardContent>
+        </Card>
+      ) : (
+        <Card className="border-accent/30 bg-accent/10">
+          <CardHeader><CardTitle className="flex items-center gap-2"><LockKeyhole className="h-5 w-5 text-accent" />想知道更深一层？</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm leading-6 text-muted-foreground">高级版可以查看你的情感触发点、相处盲区、适配沟通方式和专属行动建议。</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {buyUrl ? <a href={buyUrl} target="_blank" rel="noreferrer"><Button className="w-full">￥6.9 购买解锁码 <ArrowRight className="h-4 w-4" /></Button></a> : null}
+              <Button type="button" variant="secondary" className="w-full" onClick={() => setShowInput((value) => !value)}>我已有兑换码</Button>
+            </div>
+            {showInput ? <div className="grid gap-2 sm:grid-cols-[1fr_auto]"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="请输入兑换码，例如 LR-A8K2-P9Q7" className="min-h-11 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary" /><Button type="button" onClick={redeem} disabled={loading || !code.trim()}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}兑换并解锁</Button></div> : null}
+            {message ? <p className="text-xs leading-5 text-muted-foreground">{message}</p> : null}
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-3 sm:grid-cols-2"><Link href="/analyze"><Button className="w-full"><Check className="h-4 w-4" />用聊天记录验证一下</Button></Link><Button type="button" variant="secondary" onClick={onRestart} className="w-full"><RotateCcw className="h-4 w-4" />重新测试</Button></div>
       <p className="text-center text-xs leading-5 text-muted-foreground">本测试仅供娱乐和自我了解，不构成心理诊断或关系结论。</p>
     </section>
