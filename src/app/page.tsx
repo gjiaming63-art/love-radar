@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Radar, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BrainCircuit, Radar, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -48,6 +48,12 @@ export default function Home() {
                 <Button size="lg" className="w-full sm:w-auto">
                   开始分析
                   <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/personality">
+                <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                  <BrainCircuit className="h-4 w-4 text-accent" />
+                  测一测你的恋爱人格
                 </Button>
               </Link>
               <div className="flex items-center gap-2 text-xs leading-5 text-muted-foreground">
