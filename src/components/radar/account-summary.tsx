@@ -15,12 +15,12 @@ type AccountReport = {
 };
 
 export function AccountSummary({
-  phone,
+  email,
   screenshotRemaining,
   redeemedCodes,
   reports,
 }: {
-  phone: string;
+  email: string | null;
   screenshotRemaining: number;
   redeemedCodes: number;
   reports: AccountReport[];
@@ -39,7 +39,7 @@ export function AccountSummary({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">当前账号</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">{maskPhone(phone)}</h1>
+            <h1 className="mt-2 break-all text-xl font-semibold text-white">{email || "已登录账号"}</h1>
           </div>
           <Button type="button" variant="secondary" onClick={logout} disabled={loggingOut}>
             <LogOut className="h-4 w-4" />
@@ -93,8 +93,4 @@ function Metric({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-3xl font-semibold text-white">{value}</p>
     </div>
   );
-}
-
-function maskPhone(phone: string) {
-  return phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
 }

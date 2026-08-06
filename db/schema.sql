@@ -18,7 +18,8 @@ CREATE INDEX IF NOT EXISTS love_reports_expires_at_idx ON love_reports (expires_
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
-  phone TEXT NOT NULL UNIQUE,
+  phone TEXT UNIQUE,
+  email TEXT UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_login_at TIMESTAMPTZ
 );
@@ -48,6 +49,25 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
 CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at);
+
+ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS email_login_codes (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  client_hash TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS email_login_codes_email_created_at_idx
+  ON email_login_codes (email, created_at DESC);
+CREATE INDEX IF NOT EXISTS email_login_codes_client_hash_created_at_idx
+  ON email_login_codes (client_hash, created_at DESC);
 
 ALTER TABLE love_reports
   ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE SET NULL;

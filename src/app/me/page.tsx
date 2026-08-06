@@ -22,7 +22,7 @@ export default async function MePage() {
 
         {user && overview ? (
           <AccountSummary
-            phone={user.phone}
+            email={user.email}
             screenshotRemaining={overview.screenshotRemaining}
             redeemedCodes={overview.redeemedCodes}
             reports={overview.reports}
