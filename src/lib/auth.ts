@@ -6,6 +6,7 @@ export type AuthUser = {
   id: string;
   phone: string | null;
   email: string | null;
+  displayName: string | null;
   createdAt: string;
   lastLoginAt: string | null;
 };
@@ -79,6 +80,7 @@ export async function ensureAuthSchema() {
 
       ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS sessions (
@@ -238,7 +240,7 @@ export async function verifyLoginCode(phoneInput: string, codeInput: string) {
         VALUES ($1, $2, NOW())
         ON CONFLICT (phone)
         DO UPDATE SET last_login_at = NOW()
-        RETURNING id, phone, created_at AS "createdAt", last_login_at AS "lastLoginAt"
+      RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"
       `,
       [userId, phone],
     );
@@ -320,7 +322,7 @@ export async function verifyEmailLoginCode(emailInput: string, codeInput: string
     const userResult = await client.query<AuthUser>(
       `INSERT INTO users (id, email, last_login_at) VALUES ($1, $2, NOW())
        ON CONFLICT (email) DO UPDATE SET last_login_at = NOW()
-       RETURNING id, phone, email, created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
+       RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
       [randomUUID(), email],
     );
     const user = userResult.rows[0];
@@ -352,7 +354,7 @@ export async function getUserBySessionToken(token: string): Promise<AuthUser | n
   await ensureAuthSchema();
   const result = await db.query<AuthUser>(
     `
-      SELECT users.id, users.phone, users.email, users.created_at AS "createdAt", users.last_login_at AS "lastLoginAt"
+      SELECT users.id, users.phone, users.email, users.display_name AS "displayName", users.created_at AS "createdAt", users.last_login_at AS "lastLoginAt"
       FROM sessions
       JOIN users ON users.id = sessions.user_id
       WHERE sessions.token_hash = $1
@@ -412,10 +414,26 @@ export async function bindReportToUser(reportId: string, userId: string) {
   return (result.rowCount ?? 0) > 0;
 }
 
+export async function updateUserProfile(userId: string, displayNameInput: string) {
+  const db = getPool();
+  if (!db) return { success: false, error: "账户服务暂不可用，请稍后再试。" };
+  const displayName = displayNameInput.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 20);
+  await ensureAuthSchema();
+  const result = await db.query<AuthUser>(
+    `UPDATE users
+     SET display_name = NULLIF($2, '')
+     WHERE id = $1
+     RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
+    [userId, displayName],
+  );
+  if (!result.rows[0]) return { success: false, error: "账户不存在，请重新登录。" };
+  return { success: true, user: result.rows[0] };
+}
+
 export async function getMeOverview(userId: string) {
   const db = getPool();
   if (!db) {
-    return { reports: [], screenshotRemaining: 0, redeemedCodes: 0 };
+    return { reports: [], screenshotRemaining: 0, redeemedCodes: 0, reportCount: 0, paidReportCount: 0 };
   }
   await ensureAuthSchema();
   const [reports, quota, codes] = await Promise.all([
@@ -466,6 +484,8 @@ export async function getMeOverview(userId: string) {
     })),
     screenshotRemaining: Number(quota.rows[0]?.remaining ?? 0),
     redeemedCodes: Number(codes.rows[0]?.count ?? 0),
+    reportCount: reports.rows.length,
+    paidReportCount: reports.rows.filter((item) => Boolean(item.is_paid)).length,
   };
 }
 
