@@ -321,7 +321,8 @@ export async function verifyEmailLoginCode(emailInput: string, codeInput: string
     await client.query("UPDATE email_login_codes SET used_at = NOW() WHERE id = $1 AND used_at IS NULL", [matched.id]);
     const userResult = await client.query<AuthUser>(
       `INSERT INTO users (id, email, last_login_at) VALUES ($1, $2, NOW())
-       ON CONFLICT (email) DO UPDATE SET last_login_at = NOW()
+       ON CONFLICT (email) WHERE email IS NOT NULL
+       DO UPDATE SET last_login_at = NOW()
        RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
       [randomUUID(), email],
     );
