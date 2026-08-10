@@ -46,7 +46,7 @@ export function SaveReportButton({ reportId }: { reportId: string }) {
           href={`/login?redirect=/report/${reportId}`}
           className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition hover:bg-primary/90"
         >
-          手机号登录并保存
+          登录并保存
         </Link>
       </div>
     );
