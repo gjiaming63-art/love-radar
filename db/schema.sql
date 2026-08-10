@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS love_reports (
   delete_token_hash TEXT NOT NULL,
   is_paid BOOLEAN NOT NULL DEFAULT FALSE,
   paid_at TIMESTAMPTZ,
+  locale TEXT NOT NULL DEFAULT 'zh-CN',
+  input_type TEXT,
+  analysis_language TEXT NOT NULL DEFAULT 'zh-CN',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   expires_at TIMESTAMPTZ NOT NULL
 );
@@ -54,6 +57,21 @@ ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS purchases (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  report_id TEXT REFERENCES love_reports(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL,
+  provider_order_id TEXT,
+  product_type TEXT NOT NULL DEFAULT 'single_report',
+  amount_cents INTEGER,
+  currency TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  purchased_at TIMESTAMPTZ,
+  refunded_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS email_login_codes (
   id TEXT PRIMARY KEY,
@@ -156,6 +174,8 @@ CREATE TABLE IF NOT EXISTS product_events (
   client_hash TEXT NOT NULL,
   source TEXT,
   user_agent TEXT,
+  locale TEXT,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

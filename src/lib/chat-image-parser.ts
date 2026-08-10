@@ -99,11 +99,11 @@ function normalizeParsedResult(value: unknown): ParsedChatImageResult {
   };
 }
 
-export function parsedMessagesToChatText(messages: ParsedChatImageMessage[]) {
-  return messages.map((item) => `${item.speaker === "user" ? "我" : "对方"}：${item.text}`).join("\n");
+export function parsedMessagesToChatText(messages: ParsedChatImageMessage[], locale: "zh-CN" | "en-US" = "zh-CN") {
+  return messages.map((item) => `${item.speaker === "user" ? (locale === "en-US" ? "Me" : "我") : (locale === "en-US" ? "Other" : "对方")}：${item.text}`).join("\n");
 }
 
-export async function parseChatImagesWithQwen(images: ChatImageInput[]): Promise<ParsedChatImageResult> {
+export async function parseChatImagesWithQwen(images: ChatImageInput[], locale: "zh-CN" | "en-US" = "zh-CN"): Promise<ParsedChatImageResult> {
   const { apiKey, baseUrl, model } = getQwenConfig();
   if (!apiKey) {
     throw new Error("服务端未配置 QWEN_VL_API_KEY 或 DASHSCOPE_API_KEY，暂时不能智能解析聊天截图。");
@@ -116,7 +116,19 @@ export async function parseChatImagesWithQwen(images: ChatImageInput[]): Promise
     },
   }));
 
-  const prompt = `你是 Love Radar 的聊天截图视觉解析器。请直接看懂微信/聊天软件截图，不要只做 OCR。
+  const prompt = locale === "en-US" ? `You are the visual conversation parser for Love Radar AI. Understand the screenshot visually, not as OCR-only text.
+
+Rules:
+1. Join multiple images in upload order.
+2. The right bubble is the user (speaker "user"); the left bubble is the other person (speaker "target").
+3. Extract only real chat bubbles. Ignore timestamps, dates, contact headers, status bars, battery/network icons, buttons, keyboards, ads, and input boxes.
+4. Skip unreadable bubbles instead of inventing text.
+5. Do not analyze the relationship or give advice. Return structured messages only.
+6. Replace phone numbers, addresses, IDs, schools, and companies with [REDACTED].
+7. Return strict JSON only.
+
+JSON shape:
+{"messages":[{"speaker":"user","text":"exact bubble text","sourceImageIndex":1,"confidence":0.92},{"speaker":"target","text":"exact bubble text","sourceImageIndex":1,"confidence":0.88}],"participants":{"userLabel":"Me","targetLabel":"Other"},"warnings":[],"chatText":"Me：exact bubble text\\nOther：exact bubble text"}` : `你是 Love Radar 的聊天截图视觉解析器。请直接看懂微信/聊天软件截图，不要只做 OCR。
 
 核心规则：
 1. 多张图按用户上传顺序拼接，先处理第 1 张，再处理第 2 张，以此类推。

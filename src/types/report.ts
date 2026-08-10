@@ -99,6 +99,9 @@ export type DeepSeekAnalysisReport = {
   deleteToken?: string;
   isPaid?: boolean;
   paidAt?: string | null;
+  locale?: "zh-CN" | "en-US";
+  inputType?: "text" | "image";
+  analysisLanguage?: "zh-CN" | "en-US";
 };
 
 export type LoveReport = DeepSeekAnalysisReport;

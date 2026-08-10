@@ -4,7 +4,7 @@ import type { LoveReport } from "@/types/report";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { report?: LoveReport };
+    const body = (await request.json()) as { report?: LoveReport; locale?: "zh-CN" | "en-US"; inputType?: "text" | "image" };
     if (
       typeof body.report?.overallScore !== "number" ||
       !body.report.summary ||
@@ -13,7 +13,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "报告数据不完整" }, { status: 400 });
     }
 
-    const saved = await saveReport(body.report);
+    const saved = await saveReport({
+      ...body.report,
+      locale: body.locale ?? body.report.locale ?? "zh-CN",
+      inputType: body.inputType ?? body.report.inputType ?? "text",
+      analysisLanguage: body.locale ?? body.report.analysisLanguage ?? "zh-CN",
+    });
     return NextResponse.json({ report: saved });
   } catch (error) {
     console.error(error);

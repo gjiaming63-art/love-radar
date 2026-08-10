@@ -445,6 +445,7 @@ export async function getMeOverview(userId: string) {
       overall_score: number;
       is_paid: boolean;
       created_at: Date;
+      locale: "zh-CN" | "en-US";
     }>(
       `
         SELECT
@@ -453,6 +454,7 @@ export async function getMeOverview(userId: string) {
           relationship->>'riskLevel' AS risk_level,
           COALESCE((relationship->>'overallScore')::int, 0) AS overall_score,
           is_paid,
+          locale,
           created_at
         FROM love_reports
         WHERE user_id = $1 AND expires_at > NOW()
@@ -481,6 +483,7 @@ export async function getMeOverview(userId: string) {
       riskLevel: item.risk_level,
       overallScore: Number(item.overall_score),
       isPaid: Boolean(item.is_paid),
+      locale: item.locale === "en-US" ? "en-US" : "zh-CN",
       createdAt: item.created_at.toISOString(),
     })),
     screenshotRemaining: Number(quota.rows[0]?.remaining ?? 0),

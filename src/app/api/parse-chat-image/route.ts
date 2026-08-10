@@ -10,13 +10,14 @@ const freeMaxImageCount = 4;
 const paidMaxImageCount = 8;
 const parseBatchSize = 4;
 const configuredDailyLimit = Number(process.env.SCREENSHOT_DAILY_LIMIT ?? 2);
-const dailyLimit = Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2;
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
+    const locale = formData.get("locale") === "en-US" ? "en-US" : "zh-CN";
+    const dailyLimit = locale === "en-US" ? 1 : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2);
     const images = formData.getAll("images").filter((item): item is File => item instanceof File);
     const legacyImage = formData.get("image");
     if (!images.length && legacyImage instanceof File) images.push(legacyImage);
@@ -86,11 +87,11 @@ export async function POST(request: Request) {
     const batches = chunk(inputs, parseBatchSize);
     const parsedBatches = await Promise.all(
       batches.map(async (batch, batchIndex) => {
-        const parsed = await parseChatImagesWithQwen(batch);
+        const parsed = await parseChatImagesWithQwen(batch, locale);
         return offsetParsedImageIndexes(parsed, batchIndex * parseBatchSize);
       }),
     );
-    const parsed = mergeParsedBatches(parsedBatches);
+    const parsed = mergeParsedBatches(parsedBatches, locale);
 
     return NextResponse.json({
       parsed,
@@ -144,7 +145,7 @@ function offsetParsedImageIndexes(parsed: ParsedChatImageResult, offset: number)
   };
 }
 
-function mergeParsedBatches(batches: ParsedChatImageResult[]): ParsedChatImageResult {
+function mergeParsedBatches(batches: ParsedChatImageResult[], locale: "zh-CN" | "en-US" = "zh-CN"): ParsedChatImageResult {
   const messages = batches.flatMap((batch) => batch.messages);
   const warnings = batches.flatMap((batch, index) =>
     batch.warnings.map((warning) => (batches.length > 1 ? `第 ${index + 1} 组：${warning}` : warning)),
@@ -158,6 +159,6 @@ function mergeParsedBatches(batches: ParsedChatImageResult[]): ParsedChatImageRe
     messages,
     participants,
     warnings: warnings.slice(0, 6),
-    chatText: parsedMessagesToChatText(messages),
+    chatText: parsedMessagesToChatText(messages, locale),
   };
 }

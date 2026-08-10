@@ -102,7 +102,10 @@ export async function ensureCommerceSchema() {
         ALTER TABLE love_reports
           ADD COLUMN IF NOT EXISTS is_paid BOOLEAN NOT NULL DEFAULT FALSE,
           ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ,
-          ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
+          ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'zh-CN',
+          ADD COLUMN IF NOT EXISTS input_type TEXT,
+          ADD COLUMN IF NOT EXISTS analysis_language TEXT NOT NULL DEFAULT 'zh-CN';
 
         CREATE INDEX IF NOT EXISTS love_reports_user_id_idx ON love_reports (user_id);
 
@@ -200,6 +203,21 @@ export async function ensureCommerceSchema() {
         CREATE INDEX IF NOT EXISTS product_events_event_name_idx ON product_events (event_name);
         CREATE INDEX IF NOT EXISTS product_events_report_id_idx ON product_events (report_id);
         CREATE INDEX IF NOT EXISTS product_events_created_at_idx ON product_events (created_at);
+
+        CREATE TABLE IF NOT EXISTS purchases (
+          id TEXT PRIMARY KEY,
+          user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          report_id TEXT REFERENCES love_reports(id) ON DELETE SET NULL,
+          provider TEXT NOT NULL,
+          provider_order_id TEXT,
+          product_type TEXT NOT NULL DEFAULT 'single_report',
+          amount_cents INTEGER,
+          currency TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          purchased_at TIMESTAMPTZ,
+          refunded_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
       `);
     })();
   await schemaReady;
@@ -260,8 +278,8 @@ export async function saveReport(report: LoveReport) {
 
   await db.query(
     `INSERT INTO love_reports
-      (id, scores, tags, summary, evidence_excerpt, advice, mode, relationship, delete_token_hash, is_paid, paid_at, created_at, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, NULL, $10, $11)`,
+      (id, scores, tags, summary, evidence_excerpt, advice, mode, relationship, delete_token_hash, is_paid, paid_at, locale, input_type, analysis_language, created_at, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, NULL, $10, $11, $12, $13, $14)`,
     [
       id,
       JSON.stringify(stored.scores),
@@ -272,6 +290,9 @@ export async function saveReport(report: LoveReport) {
       stored.mode ?? "comprehensive",
       JSON.stringify(relationship),
       deleteTokenHash,
+      stored.locale ?? "zh-CN",
+      stored.inputType ?? "text",
+      stored.analysisLanguage ?? stored.locale ?? "zh-CN",
       createdAt,
       expiresAt,
     ],
@@ -296,7 +317,7 @@ export async function getReport(id: string): Promise<StoredReport | null> {
   await ensureCommerceSchema();
 
   const result = await db.query(
-    `SELECT id, scores, tags, summary, evidence_excerpt, advice, mode, relationship, is_paid, paid_at, created_at, expires_at
+    `SELECT id, scores, tags, summary, evidence_excerpt, advice, mode, relationship, is_paid, paid_at, locale, input_type, analysis_language, created_at, expires_at
      FROM love_reports
      WHERE id = $1 AND expires_at > NOW()`,
     [id],
@@ -330,6 +351,9 @@ export async function getReport(id: string): Promise<StoredReport | null> {
     expiresAt: row.expires_at.toISOString(),
     isPaid: Boolean(row.is_paid),
     paidAt: row.paid_at ? row.paid_at.toISOString() : null,
+    locale: row.locale === "en-US" ? "en-US" : "zh-CN",
+    inputType: row.input_type === "image" ? "image" : "text",
+    analysisLanguage: row.analysis_language === "en-US" ? "en-US" : "zh-CN",
   });
 }
 

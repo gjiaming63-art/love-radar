@@ -3,6 +3,8 @@ import { parsedMessagesToChatText } from "@/lib/chat-image-parser";
 import { parseWechatTranscript, normalizeChatText } from "@/lib/chat-text-parser";
 import { analyzeChatWithDeepSeek, createInsufficientReport } from "@/lib/deepseek";
 import { analysisModes, type AnalysisMode, type ParsedChatImageMessage, type RoleContext } from "@/types/report";
+import { consumeTextQuota } from "@/lib/text-usage";
+import { getClientKey } from "@/lib/screenshot-usage";
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +13,11 @@ export async function POST(request: Request) {
       mode?: AnalysisMode;
       parsedMessages?: ParsedChatImageMessage[];
       roleContext?: RoleContext;
+      locale?: "zh-CN" | "en-US";
+      inputType?: "text" | "image";
     };
-    const parsedChatText = Array.isArray(body.parsedMessages) ? parsedMessagesToChatText(body.parsedMessages) : "";
+    const locale = body.locale === "en-US" ? "en-US" : "zh-CN";
+    const parsedChatText = Array.isArray(body.parsedMessages) ? parsedMessagesToChatText(body.parsedMessages, locale) : "";
     const rawChatText = normalizeChatText(parsedChatText || body.chatText || "");
     const parsedTranscript = parseWechatTranscript(rawChatText);
     const chatText = normalizeChatText(parsedTranscript.normalizedText || rawChatText);
@@ -32,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     if (chatText.length < 20) {
-      return NextResponse.json({ report: createInsufficientReport(mode) });
+      return NextResponse.json({ report: createInsufficientReport(mode, locale) });
     }
 
     if (chatText.length > 30000) {
@@ -48,8 +53,14 @@ export async function POST(request: Request) {
         ? { participants: parsedTranscript.speakers }
         : undefined;
 
-    const report = await analyzeChatWithDeepSeek(chatText, mode, roleContext);
-    return NextResponse.json({ report });
+    const report = await analyzeChatWithDeepSeek(chatText, mode, roleContext, locale);
+    if (locale === "en-US") {
+      const quota = await consumeTextQuota(getClientKey(request), locale, 3);
+      if (!quota.ok) {
+        return NextResponse.json({ code: "TEXT_DAILY_LIMIT_REACHED", error: "Your free text analyses for today are used up.", ...quota }, { status: 429 });
+      }
+    }
+    return NextResponse.json({ report: { ...report, locale, inputType: body.inputType ?? "text", analysisLanguage: locale } });
   } catch (error) {
     console.error(error);
     const message = error instanceof Error ? error.message : "分析失败";

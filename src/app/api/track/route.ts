@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { trackProductEvent } from "@/lib/product-metrics";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -7,16 +8,21 @@ export async function POST(request: Request) {
       eventName?: string;
       reportId?: string;
       source?: string;
+      locale?: "zh-CN" | "en-US";
     };
 
-    if (body.eventName !== "visit" && body.eventName !== "premium_click") {
+    const allowed = ["visit", "premium_click", "premium_interest", "english_report_generated", "english_share_clicked"];
+    if (!allowed.includes(String(body.eventName))) {
       return NextResponse.json({ error: "Unsupported event." }, { status: 400 });
     }
 
+    const user = await getCurrentUser();
     await trackProductEvent({
-      eventName: body.eventName,
+      eventName: body.eventName as never,
       reportId: body.reportId,
       source: body.source,
+      locale: body.locale,
+      userId: user?.id,
       request,
     });
 

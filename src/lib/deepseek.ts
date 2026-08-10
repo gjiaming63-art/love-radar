@@ -152,8 +152,8 @@ function softenOverallScore(value: unknown, fallback: number) {
   return score;
 }
 
-function calibratedRiskLevel(riskLevel: string, overallScore: number, insufficient: boolean) {
-  if (insufficient) return "信息不足";
+function calibratedRiskLevel(riskLevel: string, overallScore: number, insufficient: boolean, locale: "zh-CN" | "en-US") {
+  if (insufficient) return locale === "en-US" ? "Insufficient context" : "信息不足";
   const level = compactText(riskLevel || "中等风险", 20);
   if (overallScore < 45 && /高|中高/.test(level)) return "轻微风险";
   if (overallScore < 65 && /高|中高/.test(level)) return "中等风险";
@@ -161,59 +161,65 @@ function calibratedRiskLevel(riskLevel: string, overallScore: number, insufficie
   return level;
 }
 
-function normalizeReport(value: unknown, mode: AnalysisMode): DeepSeekAnalysisReport {
+function normalizeReport(value: unknown, mode: AnalysisMode, locale: "zh-CN" | "en-US" = "zh-CN"): DeepSeekAnalysisReport {
   const input = value as PartialReport;
-  const insufficient = input.riskLevel === "信息不足";
+  const insufficient = input.riskLevel === "信息不足" || input.riskLevel === "Insufficient context";
+  const english = locale === "en-US";
   const scores: Partial<DeepSeekScores> = input.scores ?? {};
   const fallbackScore = insufficient ? 20 : 50;
   const overallScore = insufficient ? clampScore(input.overallScore, 15) : softenOverallScore(input.overallScore, 50);
   const fallbackConfidence: ReportConfidence = insufficient
     ? {
-        level: "低",
-        reason: "聊天样本太短，缺少连续上下文，只能做轻量判断。",
+        level: english ? "Low" : "低",
+        reason: english ? "The sample is too short to establish a reliable pattern." : "聊天样本太短，缺少连续上下文，只能做轻量判断。",
         messageCount: 0,
-        speakerBalance: "样本不足，无法判断双方发言比例。",
-        limitations: ["无法判断长期行为模式。", "无法确认线下行动和真实意图。"],
+        speakerBalance: english ? "There is not enough context to compare both sides." : "样本不足，无法判断双方发言比例。",
+        limitations: english ? ["Long-term patterns cannot be assessed.", "Offline actions and intent cannot be confirmed."] : ["无法判断长期行为模式。", "无法确认线下行动和真实意图。"],
       }
     : {
-        level: "中",
-        reason: "当前聊天能看出部分互动信号，但仍建议结合更长时间线观察。",
+        level: english ? "Medium" : "中",
+        reason: english ? "The chat shows some interaction signals, but a longer timeline would be more reliable." : "当前聊天能看出部分互动信号，但仍建议结合更长时间线观察。",
         messageCount: 0,
-        speakerBalance: "双方发言比例需要结合原始聊天判断。",
-        limitations: ["不能仅凭片段确认长期人格模式。", "无法确认线下行动是否一致。"],
+        speakerBalance: english ? "The balance between both speakers needs more context." : "双方发言比例需要结合原始聊天判断。",
+        limitations: english ? ["A fragment cannot confirm a long-term personality pattern.", "Offline actions cannot be confirmed."] : ["不能仅凭片段确认长期人格模式。", "无法确认线下行动是否一致。"],
       };
   const fallbackActionPlan: ActionPlan = {
-    strategy: insufficient ? "先补充更多上下文，再做判断。" : "先降低情绪消耗，用一次清晰沟通换取更明确反馈。",
+    strategy: insufficient ? (english ? "Add more context before making a stronger read." : "先补充更多上下文，再做判断。") : (english ? "Reduce emotional over-investment and use one clear conversation to get clearer feedback." : "先降低情绪消耗，用一次清晰沟通换取更明确反馈。"),
     nextReplies: [
       {
-        style: "温和沟通版",
-        text: "我想更清楚地了解你的想法，也希望我们沟通得具体一点。",
+        style: english ? "Gentle check-in" : "温和沟通版",
+        text: english ? "I want to understand how you feel, and I would appreciate a more direct conversation." : "我想更清楚地了解你的想法，也希望我们沟通得具体一点。",
       },
       {
-        style: "边界感版",
-        text: "如果你暂时不想推进关系，可以直接说，我也会调整自己的投入。",
+        style: english ? "Clear boundary" : "边界感版",
+        text: english ? "If you are not ready to move this forward, you can tell me directly and I will adjust my investment." : "如果你暂时不想推进关系，可以直接说，我也会调整自己的投入。",
       },
     ],
     ifThen: [
       {
-        scenario: "如果对方积极回应",
-        advice: "继续观察实际行动，不急着一次性加大投入。",
+        scenario: english ? "If they respond openly" : "如果对方积极回应",
+        advice: english ? "Keep watching whether their actions match their words." : "继续观察实际行动，不急着一次性加大投入。",
       },
       {
-        scenario: "如果对方继续模糊",
-        advice: "减少主动追问，把注意力收回到自己的生活节奏。",
+        scenario: english ? "If they stay vague" : "如果对方继续模糊",
+        advice: english ? "Stop chasing clarity repeatedly and return attention to your own rhythm." : "减少主动追问，把注意力收回到自己的生活节奏。",
       },
     ],
-    dontDo: ["不要连续追问对方为什么不回。", "不要用测试或威胁逼对方表态。"],
+    dontDo: english ? ["Do not repeatedly ask why they are not replying.", "Do not use tests or threats to force an answer."] : ["不要连续追问对方为什么不回。", "不要用测试或威胁逼对方表态。"],
   };
 
   return {
     mode,
     overallScore,
-    riskLevel: calibratedRiskLevel(String(input.riskLevel || (insufficient ? "信息不足" : "中等风险")), overallScore, insufficient),
-    relationshipStage: compactText(String(input.relationshipStage || "关系阶段不明"), 30),
+    riskLevel: calibratedRiskLevel(
+      String(input.riskLevel || (insufficient ? (english ? "Insufficient context" : "信息不足") : (english ? "Moderate risk" : "中等风险"))),
+      overallScore,
+      insufficient,
+      locale,
+    ),
+    relationshipStage: compactText(String(input.relationshipStage || (english ? "Unclear stage" : "关系阶段不明")), 30),
     summary: compactText(
-      String(input.summary || "聊天记录信号不足，只能做轻量娱乐判断。"),
+      String(input.summary || (english ? "There is not enough context for a confident read yet." : "聊天记录信号不足，只能做轻量娱乐判断。")),
       220,
     ),
     scores: {
@@ -232,45 +238,59 @@ function normalizeReport(value: unknown, mode: AnalysisMode): DeepSeekAnalysisRe
         ? clampScore(scores.overInvestmentRisk, fallbackScore)
         : softenRiskScore(scores.overInvestmentRisk, fallbackScore, "normal"),
     },
-    riskTags: stringList(input.riskTags, insufficient ? ["信息不足"] : ["需要继续观察"], 5),
+    riskTags: stringList(input.riskTags, insufficient ? [english ? "Insufficient context" : "信息不足"] : [english ? "Worth observing" : "需要继续观察"], 5),
     confidence: confidencePayload(input.confidence, fallbackConfidence),
     relationshipTrend: trendPayload(input.relationshipTrend, {
-      label: insufficient ? "样本不足" : "继续观察",
-      reason: insufficient ? "聊天记录太短，无法判断关系走势。" : "当前信号还不足以做绝对判断，建议看后续行动一致性。",
+      label: insufficient ? (english ? "Not enough data" : "样本不足") : (english ? "Observe" : "继续观察"),
+      reason: insufficient ? (english ? "The chat is too short to assess the relationship direction." : "聊天记录太短，无法判断关系走势。") : (english ? "The current signals are not enough for a definite conclusion; watch whether future actions stay consistent." : "当前信号还不足以做绝对判断，建议看后续行动一致性。"),
     }),
     redFlags: evidenceList(
       input.redFlags,
-      [{ quote: "聊天记录不足", reason: "缺少足够上下文，无法提取稳定风险证据。", strength: "弱" }],
+      [{ quote: english ? "Not enough chat context" : "聊天记录不足", reason: english ? "There is not enough context for stable evidence." : "缺少足够上下文，无法提取稳定风险证据。", strength: "弱" }],
       4,
     ),
     greenFlags: evidenceList(
       input.greenFlags,
-      [{ quote: "仍可继续观察", reason: "仅凭当前片段不宜做绝对判断。", strength: "弱" }],
+      [{ quote: english ? "Worth observing" : "仍可继续观察", reason: english ? "This fragment should not be treated as a definite verdict." : "仅凭当前片段不宜做绝对判断。", strength: "弱" }],
       4,
     ),
     behaviorPattern: compactText(
-      String(input.behaviorPattern || "当前片段不足以判断稳定行为模式。"),
+      String(input.behaviorPattern || (english ? "This fragment is not enough to identify a stable behavior pattern." : "当前片段不足以判断稳定行为模式。")),
       180,
     ),
     suggestions: stringList(
       input.suggestions,
-      ["补充更多聊天上下文后再分析。", "先观察对方是否有稳定回应和实际行动。"],
+      english ? ["Add more chat context before drawing a stronger conclusion.", "Watch whether their replies and actions remain consistent."] : ["补充更多聊天上下文后再分析。", "先观察对方是否有稳定回应和实际行动。"],
       4,
     ),
     replyExamples: stringList(
       input.replyExamples,
-      ["我想更清楚地了解你的想法，也希望我们沟通得具体一点。"],
+      english ? ["I want to understand how you feel, and I would appreciate a more direct conversation."] : ["我想更清楚地了解你的想法，也希望我们沟通得具体一点。"],
       4,
     ),
     actionPlan: actionPlanPayload(input.actionPlan, fallbackActionPlan),
     shareCardText: compactText(
-      String(input.shareCardText || "恋爱雷达报告：当前信息不足，建议补充聊天记录后再判断。"),
+      String(input.shareCardText || (english ? "Love Radar report: not enough context yet. Add more chat to get a clearer read." : "恋爱雷达报告：当前信息不足，建议补充聊天记录后再判断。")),
       120,
     ),
   };
 }
 
-export function createInsufficientReport(mode: AnalysisMode): DeepSeekAnalysisReport {
+export function createInsufficientReport(mode: AnalysisMode, locale: "zh-CN" | "en-US" = "zh-CN"): DeepSeekAnalysisReport {
+  if (locale === "en-US") {
+    return normalizeReport({
+      overallScore: 15, riskLevel: "Insufficient context", relationshipStage: "Not enough data",
+      summary: "This chat is too short to identify a reliable relationship pattern.",
+      scores: { sincerity: 20, avoidance: 20, coldViolence: 10, breadcrumbing: 15, manipulation: 5, overInvestmentRisk: 20 },
+      riskTags: ["Insufficient context", "Add more messages"],
+      redFlags: [{ quote: "Chat sample is too short", reason: "There are not enough lines to support a risk signal." }],
+      greenFlags: [{ quote: "Worth observing", reason: "A short fragment should not be treated as a verdict." }],
+      behaviorPattern: "There is not enough context to identify a stable behavior pattern.",
+      suggestions: ["Add 20-80 recent messages for a clearer read.", "Keep both sides and the surrounding context."],
+      replyExamples: ["I would like to understand how you feel. Can we talk more directly?"],
+      shareCardText: "Love Radar report: not enough context yet.",
+    }, mode, locale);
+  }
   return normalizeReport(
     {
       overallScore: 15,
@@ -297,7 +317,11 @@ export function createInsufficientReport(mode: AnalysisMode): DeepSeekAnalysisRe
   );
 }
 
-function modeLabel(mode: AnalysisMode) {
+function modeLabel(mode: AnalysisMode, locale: "zh-CN" | "en-US" = "zh-CN") {
+  if (locale === "en-US") {
+    const labels: Record<string, string> = { comprehensive: "Overall analysis", fishing: "Are they keeping options open?", cold_violence: "Could this be silent treatment?", sincerity: "How sincere are they?", worth_investing: "Is this worth more investment?", ambiguity_progress: "Will this relationship move forward?", post_breakup_chance: "Is there a chance after no contact?" };
+    return labels[String(mode)] ?? String(mode || "Overall analysis");
+  }
   const labels: Record<string, string> = {
     comprehensive: "综合分析",
     fishing: "是否养鱼",
@@ -310,26 +334,27 @@ function modeLabel(mode: AnalysisMode) {
   return labels[String(mode)] ?? String(mode || "综合分析");
 }
 
-function roleInstruction(roleContext?: RoleContext) {
+function roleInstruction(roleContext?: RoleContext, locale: "zh-CN" | "en-US" = "zh-CN") {
   const participants = roleContext?.participants?.filter(Boolean).slice(0, 4) ?? [];
   const selfName = roleContext?.selfName?.trim();
   const targetName = roleContext?.targetName?.trim();
 
   if (selfName && targetName) {
-    return `用户已确认分析视角：微信昵称“${selfName}”代表用户本人，最终报告里称为“你”；微信昵称“${targetName}”代表分析对象，最终报告里称为“对方”。昵称只用于理解对话角色，不要出现在最终输出字段中。`;
+    return locale === "en-US" ? `The user confirmed the viewpoint: "${selfName}" is the user and should be called "you"; "${targetName}" is the other person and should be called "the other person". Do not include names in the final output.` : `用户已确认分析视角：微信昵称“${selfName}”代表用户本人，最终报告里称为“你”；微信昵称“${targetName}”代表分析对象，最终报告里称为“对方”。昵称只用于理解对话角色，不要出现在最终输出字段中。`;
   }
 
   if (participants.length >= 2) {
-    return `系统识别到聊天对象：${participants.join("、")}。用户未确认视角，请根据聊天内容判断；不确定时使用“A方/B方”，不要强行认定谁是用户。`;
+    return locale === "en-US" ? `The detected participants are ${participants.join(", ")}. The viewpoint is unconfirmed; use "Person A/Person B" if uncertain.` : `系统识别到聊天对象：${participants.join("、")}。用户未确认视角，请根据聊天内容判断；不确定时使用“A方/B方”，不要强行认定谁是用户。`;
   }
 
-  return "未稳定识别双方昵称。不确定时使用“A方/B方”，不要编造身份。";
+  return locale === "en-US" ? "The two speakers are not reliably identified. Use Person A/Person B rather than inventing identities." : "未稳定识别双方昵称。不确定时使用“A方/B方”，不要编造身份。";
 }
 
 export async function analyzeChatWithDeepSeek(
   chatText: string,
   mode: AnalysisMode,
   roleContext?: RoleContext,
+  locale: "zh-CN" | "en-US" = "zh-CN",
 ): Promise<DeepSeekAnalysisReport> {
   const { apiKey, baseUrl, model } = getDeepSeekConfig();
   if (!apiKey) {
@@ -340,17 +365,17 @@ export async function analyzeChatWithDeepSeek(
     {
       role: "system",
       content:
-        "你是 Love Radar（恋爱雷达）的娱乐向聊天关系分析 AI。你必须基于用户提供的聊天记录分析，不允许输出固定模板或编造证据。不要做心理诊断，不要给绝对判断，不要使用侮辱性语言，不要鼓励极端行为。整体语气要有提醒感但不审判：像朋友帮忙看信号，不像法官下结论。你的输出只作为娱乐和沟通参考。你必须只返回严格 JSON，不要 Markdown，不要解释。",
+        locale === "en-US" ? "You are an AI relationship analyst for Love Radar AI. Analyze only the user's actual conversation. Never use a fixed result or invent evidence. Do not diagnose mental health, make absolute judgments, insult anyone, or encourage extreme behavior. Use a warm, non-judgmental tone and express uncertainty where appropriate. This is for entertainment and communication reference only. Return strict JSON only, with no Markdown or explanation." : "你是 Love Radar（恋爱雷达）的娱乐向聊天关系分析 AI。你必须基于用户提供的聊天记录分析，不允许输出固定模板或编造证据。不要做心理诊断，不要给绝对判断，不要使用侮辱性语言，不要鼓励极端行为。整体语气要有提醒感但不审判：像朋友帮忙看信号，不像法官下结论。你的输出只作为娱乐和沟通参考。你必须只返回严格 JSON，不要 Markdown，不要解释。",
     },
     {
       role: "user",
-      content: `分析模式：${modeLabel(mode)}
+      content: `${locale === "en-US" ? "Analysis mode" : "分析模式"}: ${modeLabel(mode, locale)}
 
 角色信息：
-${roleInstruction(roleContext)}
+${roleInstruction(roleContext, locale)}
 
 任务：
-1. 必须基于下面的聊天记录动态分析，分数必须随聊天内容变化。
+1. ${locale === "en-US" ? "Base every score, tag, suggestion, and conclusion on the supplied chat. Scores must change when the chat changes." : "必须基于下面的聊天记录动态分析，分数必须随聊天内容变化。"}
 2. redFlags 和 greenFlags 必须引用聊天记录中的具体原句；不要引用不存在的句子。
 3. 如果信息不足，明确返回 riskLevel 为“信息不足”，summary 说明原因，分数降低置信度，不要强行判断。
 4. 最终报告用“你/对方”或“A方/B方”，不要泄露微信昵称。
@@ -449,5 +474,5 @@ ${chatText.slice(0, 12000)}`,
   const data = (await response.json()) as DeepSeekResponse;
   const content = data.choices?.[0]?.message?.content ?? "";
   if (!content) throw new Error("DeepSeek returned an empty response.");
-  return normalizeReport(JSON.parse(extractJson(content)), mode);
+  return normalizeReport(JSON.parse(extractJson(content)), mode, locale);
 }
