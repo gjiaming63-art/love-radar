@@ -8,7 +8,7 @@ const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const maxImageSize = 3 * 1024 * 1024;
 const freeMaxImageCount = 4;
 const paidMaxImageCount = 8;
-const parseBatchSize = 4;
+const parseBatchSize = 1;
 const configuredDailyLimit = Number(process.env.SCREENSHOT_DAILY_LIMIT ?? 2);
 
 export const maxDuration = 60;
@@ -86,13 +86,29 @@ export async function POST(request: Request) {
       })),
     );
     const batches = chunk(inputs, parseBatchSize);
-    const parsedBatches = await Promise.all(
+    const batchResults = await Promise.allSettled(
       batches.map(async (batch, batchIndex) => {
         const parsed = await parseChatImagesWithQwen(batch, locale);
         return offsetParsedImageIndexes(parsed, batchIndex * parseBatchSize);
       }),
     );
+    const parsedBatches = batchResults
+      .filter((result): result is PromiseFulfilledResult<ParsedChatImageResult> => result.status === "fulfilled")
+      .map((result) => result.value);
+    const failedBatches = batchResults.filter((result) => result.status === "rejected");
+    if (!parsedBatches.length) {
+      const firstError = failedBatches[0];
+      if (firstError?.status === "rejected") throw firstError.reason;
+      throw new Error("No chat bubbles were parsed from the screenshots.");
+    }
     const parsed = mergeParsedBatches(parsedBatches, locale);
+    if (failedBatches.length) {
+      parsed.warnings.push(
+        locale === "en-US"
+          ? `${failedBatches.length} screenshot(s) could not be read clearly. The report will use the readable screenshots only.`
+          : `${failedBatches.length} 张截图未能清晰识别，系统会先基于已识别截图生成报告。`,
+      );
+    }
 
     return NextResponse.json({
       parsed,
