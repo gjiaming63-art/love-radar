@@ -54,7 +54,7 @@ function extractContent(data: QwenResponse) {
   return "";
 }
 
-function normalizeParsedResult(value: unknown): ParsedChatImageResult {
+function normalizeParsedResult(value: unknown, locale: "zh-CN" | "en-US"): ParsedChatImageResult {
   const input = value as PartialParsedChatImageResult;
   const messages =
     input.messages
@@ -79,7 +79,7 @@ function normalizeParsedResult(value: unknown): ParsedChatImageResult {
 
   const safeMessages = messages as ParsedChatImageMessage[];
   const chatText =
-    safeMessages.map((item) => `${item.speaker === "user" ? "我" : "对方"}：${item.text}`).join("\n") ||
+    safeMessages.map((item) => `${item.speaker === "user" ? (locale === "en-US" ? "Me" : "我") : (locale === "en-US" ? "Other" : "对方")}：${item.text}`).join("\n") ||
     compactText(String(input.chatText || ""), 12000);
 
   if (!safeMessages.length && !chatText.trim()) {
@@ -89,8 +89,8 @@ function normalizeParsedResult(value: unknown): ParsedChatImageResult {
   return {
     messages: safeMessages,
     participants: {
-      userLabel: compactText(String(input.participants?.userLabel || "我"), 20),
-      targetLabel: compactText(String(input.participants?.targetLabel || "对方"), 20),
+      userLabel: compactText(String(input.participants?.userLabel || (locale === "en-US" ? "Me" : "我")), 20),
+      targetLabel: compactText(String(input.participants?.targetLabel || (locale === "en-US" ? "Other" : "对方")), 20),
     },
     warnings: Array.isArray(input.warnings)
       ? input.warnings.map((item) => compactText(String(item || ""), 120)).filter(Boolean).slice(0, 5)
@@ -205,7 +205,7 @@ JSON shape:
   const content = extractContent(data);
   if (!content) throw new Error("视觉模型返回为空。");
   try {
-    return normalizeParsedResult(JSON.parse(extractJson(content)));
+    return normalizeParsedResult(JSON.parse(extractJson(content)), locale);
   } catch (error) {
     console.error("Qwen parse raw content:", content.slice(0, 1200));
     throw error;

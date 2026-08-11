@@ -14,16 +14,17 @@ const configuredDailyLimit = Number(process.env.SCREENSHOT_DAILY_LIMIT ?? 2);
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  let locale: "zh-CN" | "en-US" = "zh-CN";
   try {
     const formData = await request.formData();
-    const locale = formData.get("locale") === "en-US" ? "en-US" : "zh-CN";
+    locale = formData.get("locale") === "en-US" ? "en-US" : "zh-CN";
     const dailyLimit = locale === "en-US" ? 1 : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2);
     const images = formData.getAll("images").filter((item): item is File => item instanceof File);
     const legacyImage = formData.get("image");
     if (!images.length && legacyImage instanceof File) images.push(legacyImage);
 
     if (!images.length) {
-      return NextResponse.json({ error: "请先上传聊天截图。" }, { status: 400 });
+      return NextResponse.json({ error: imageError(locale, "missing") }, { status: 400 });
     }
 
     const clientKey = getClientKey(request);
@@ -37,8 +38,8 @@ export async function POST(request: Request) {
           code: quotaStatus.paidRemaining > 0 ? "SCREENSHOT_TOO_MANY_IMAGES" : "SCREENSHOT_PAID_REQUIRED",
           error:
             quotaStatus.paidRemaining > 0
-              ? `高级截图额度每次最多上传 ${paidMaxImageCount} 张。`
-              : `免费截图识别每次最多 ${freeMaxImageCount} 张。解锁高级额度后，每次最多 ${paidMaxImageCount} 张。`,
+              ? imageError(locale, "paidImageLimit", paidMaxImageCount)
+              : imageError(locale, "freeImageLimit", freeMaxImageCount, paidMaxImageCount),
           freeRemaining: quotaStatus.freeRemaining,
           paidRemaining: quotaStatus.paidRemaining,
           maxImageCount,
@@ -49,10 +50,10 @@ export async function POST(request: Request) {
 
     for (const image of images) {
       if (!allowedTypes.has(image.type)) {
-        return NextResponse.json({ error: "只支持 PNG、JPG、WEBP 格式的聊天截图。" }, { status: 400 });
+        return NextResponse.json({ error: imageError(locale, "type") }, { status: 400 });
       }
       if (image.size > maxImageSize) {
-        return NextResponse.json({ error: "单张图片太大，请上传 3MB 以内的聊天截图。" }, { status: 400 });
+        return NextResponse.json({ error: imageError(locale, "size") }, { status: 400 });
       }
     }
 
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
         {
           code: "SCREENSHOT_DAILY_LIMIT_REACHED",
           error:
-            "今天的免费截图识别次数已用完。你可以继续免费使用文字分析，或购买兑换码解锁 10 次高级截图额度，每次最多 8 张。",
+            imageError(locale, "dailyLimit"),
           dailyLimit: quota.limit,
           remaining: quota.remaining,
           paidRemaining: quota.paidRemaining,
@@ -104,12 +105,55 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    const message = error instanceof Error ? error.message : "聊天截图解析失败，请稍后重试。";
-    return NextResponse.json({ error: friendlyImageParseError(message) }, { status: 500 });
+    const message = error instanceof Error ? error.message : "";
+    return NextResponse.json({ error: friendlyImageParseError(message, locale) }, { status: 500 });
   }
 }
 
-function friendlyImageParseError(message: string) {
+function imageError(
+  locale: "zh-CN" | "en-US",
+  kind: "missing" | "paidImageLimit" | "freeImageLimit" | "type" | "size" | "dailyLimit",
+  first?: number,
+  second?: number,
+) {
+  if (locale === "en-US") {
+    switch (kind) {
+      case "missing": return "Please upload at least one chat screenshot.";
+      case "paidImageLimit": return `Your advanced screenshot quota allows up to ${first} images per analysis.`;
+      case "freeImageLimit": return `Free screenshot analysis allows up to ${first} images at a time. Unlock advanced access for up to ${second} images.`;
+      case "type": return "Only PNG, JPG, and WEBP chat screenshots are supported.";
+      case "size": return "Each image must be 3MB or smaller. Please choose a smaller screenshot.";
+      case "dailyLimit": return "Your free screenshot analyses for today are used up. You can still use text analysis, or unlock advanced access for more screenshot analyses, up to 8 images each time.";
+    }
+  }
+
+  switch (kind) {
+    case "missing": return "请先上传聊天截图。";
+    case "paidImageLimit": return `高级截图额度每次最多上传 ${first} 张。`;
+    case "freeImageLimit": return `免费截图识别每次最多 ${first} 张。解锁高级额度后，每次最多 ${second} 张。`;
+    case "type": return "只支持 PNG、JPG、WEBP 格式的聊天截图。";
+    case "size": return "单张图片太大，请上传 3MB 以内的聊天截图。";
+    case "dailyLimit": return "今天的免费截图识别次数已用完。你可以继续免费使用文字分析，或购买兑换码解锁 10 次高级截图额度，每次最多 8 张。";
+  }
+}
+
+function friendlyImageParseError(message: string, locale: "zh-CN" | "en-US") {
+  if (locale === "en-US") {
+    if (/Arrearage|overdue-payment|account is in good standing|Access denied|欠费|账务|overdue/i.test(message)) {
+      return "Screenshot analysis is temporarily unavailable because the vision model account has a billing issue. Please use text analysis for now.";
+    }
+    if (/FreeTierOnly|free quota|quota|AllocationQuota/i.test(message)) {
+      return "The vision model's free quota is currently unavailable. Please try again later or use text analysis instead.";
+    }
+    if (/QWEN_VL_API_KEY|DASHSCOPE_API_KEY/i.test(message)) {
+      return "Screenshot analysis is not configured yet. Please use text analysis for now.";
+    }
+    if (/AbortError|超时|timeout/i.test(message)) {
+      return "Screenshot analysis timed out. Try fewer screenshots or a clearer image.";
+    }
+    return "We couldn't read these screenshots. Please try clearer chat screenshots or use text analysis instead.";
+  }
+
   if (/Arrearage|overdue-payment|account is in good standing|Access denied|欠费|账务|overdue/i.test(message)) {
     return "截图识别暂时不可用：视觉模型账号存在欠费或账务状态异常。请先使用文字粘贴分析，站长处理阿里云账单后会恢复截图识别。";
   }
@@ -122,7 +166,7 @@ function friendlyImageParseError(message: string) {
   if (/AbortError|超时|timeout/i.test(message)) {
     return "截图识别超时，请减少截图数量，或换一张更清晰的聊天截图。";
   }
-  return message;
+  return message || "聊天截图解析失败，请稍后重试。";
 }
 
 function chunk<T>(items: T[], size: number) {
@@ -148,11 +192,17 @@ function offsetParsedImageIndexes(parsed: ParsedChatImageResult, offset: number)
 function mergeParsedBatches(batches: ParsedChatImageResult[], locale: "zh-CN" | "en-US" = "zh-CN"): ParsedChatImageResult {
   const messages = batches.flatMap((batch) => batch.messages);
   const warnings = batches.flatMap((batch, index) =>
-    batch.warnings.map((warning) => (batches.length > 1 ? `第 ${index + 1} 组：${warning}` : warning)),
+    batch.warnings.map((warning) =>
+      batches.length > 1
+        ? locale === "en-US"
+          ? `Batch ${index + 1}: ${warning}`
+          : `第 ${index + 1} 组：${warning}`
+        : warning,
+    ),
   );
   const participants = batches.find((batch) => batch.participants)?.participants ?? {
-    userLabel: "我",
-    targetLabel: "对方",
+    userLabel: locale === "en-US" ? "Me" : "我",
+    targetLabel: locale === "en-US" ? "Other" : "对方",
   };
 
   return {
