@@ -14,6 +14,7 @@ export function EnglishAnalyzeForm() {
   const [images, setImages] = useState<File[]>([]);
   const [mode, setMode] = useState<AnalysisMode>("comprehensive");
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<"idle" | "reading" | "analyzing">("idle");
   const [error, setError] = useState("");
 
   async function analyze() {
@@ -29,6 +30,7 @@ export function EnglishAnalyzeForm() {
       let inputType: "text" | "image" = "text";
       if (images.length) {
         inputType = "image";
+        setStage("reading");
         const form = new FormData();
         form.append("locale", "en-US");
         images.forEach((file) => form.append("images", file));
@@ -38,6 +40,7 @@ export function EnglishAnalyzeForm() {
         chatText = payload.parsed.chatText;
         parsedMessages = payload.parsed.messages;
       }
+      setStage("analyzing");
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,9 +58,11 @@ export function EnglishAnalyzeForm() {
       void fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: "english_report_generated", reportId: saved.report.id, locale: "en-US" }) });
       router.push(`/en/report/${saved.report.id}`);
     } catch (cause) {
+      setStage("idle");
       setError(cause instanceof Error ? cause.message : "Analysis failed. Please try again.");
     } finally {
       setLoading(false);
+      setStage("idle");
     }
   }
 
@@ -76,6 +81,18 @@ export function EnglishAnalyzeForm() {
       <textarea id="chat-text" value={text} onChange={(event) => setText(event.target.value)} rows={10} placeholder="Paste the conversation here..." className="min-h-[240px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none focus:border-primary/70" />
       <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={(event) => setImages(Array.from(event.target.files ?? []).slice(0, 4))} />
       {images.length ? <p className="text-xs text-muted-foreground">{images.length} screenshot{images.length > 1 ? "s" : ""} selected.</p> : null}
+      {stage !== "idle" ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/35 bg-primary/10 p-4 text-sm text-white" role="status" aria-live="polite">
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-black/25">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="absolute inset-0 animate-ping rounded-full border border-primary/25" />
+          </span>
+          <span>
+            <strong className="block font-medium">{stage === "reading" ? "Reading your screenshots" : "Analyzing the relationship signals"}</strong>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">{stage === "reading" ? "Detecting chat bubbles, speakers, and message order..." : "Comparing the conversation patterns and preparing your report..."}</span>
+          </span>
+        </div>
+      ) : null}
       <select value={mode} onChange={(event) => setMode(event.target.value)} className="min-h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none">
         <option value="comprehensive">Overall analysis</option><option value="sincerity">How sincere are they?</option><option value="fishing">Are they keeping options open?</option><option value="cold_violence">Could this be silent treatment?</option><option value="worth_investing">Is this worth more investment?</option>
       </select>
