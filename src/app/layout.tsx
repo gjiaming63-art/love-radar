@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { VisitTracker } from "@/components/radar/visit-tracker";
+import { GlobalLanguageSwitcher } from "@/components/radar/global-language-switcher";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="zh-CN" className="dark">
       <body>
         {children}
+        <GlobalLanguageSwitcher />
         <VisitTracker />
         <Analytics />
       </body>
