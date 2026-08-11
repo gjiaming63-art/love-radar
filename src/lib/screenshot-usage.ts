@@ -25,7 +25,11 @@ export async function consumeScreenshotQuota(
   limit: number,
   requestedImages = 1,
   userId?: string,
+  isTestAccount = false,
 ): Promise<ScreenshotQuotaResult> {
+  if (isTestAccount) {
+    return unlimitedTestQuota(limit);
+  }
   if (!Number.isFinite(limit) || limit <= 0) {
     return {
       ok: true,
@@ -228,7 +232,21 @@ export async function getScreenshotQuotaStatus(clientKey: string, limit: number)
   return getScreenshotQuotaStatusForUser(clientKey, limit);
 }
 
-export async function getScreenshotQuotaStatusForUser(clientKey: string, limit: number, userId?: string) {
+export async function getScreenshotQuotaStatusForUser(
+  clientKey: string,
+  limit: number,
+  userId?: string,
+  isTestAccount = false,
+) {
+  if (isTestAccount) {
+    const quota = unlimitedTestQuota(limit);
+    return {
+      freeRemaining: quota.remaining,
+      freeLimit: limit,
+      paidRemaining: quota.paidRemaining,
+      maxImagesPerUse: quota.maxImagesPerUse,
+    };
+  }
   const usageDate = getShanghaiUsageDate();
   const clientHash = hashClientKey(clientKey);
   const db = getPool();
@@ -267,6 +285,18 @@ export async function getScreenshotQuotaStatusForUser(clientKey: string, limit: 
     freeLimit: limit,
     paidRemaining,
     maxImagesPerUse: paidRemaining > 0 ? paidMaxImagesPerUse : freeMaxImagesPerUse,
+  };
+}
+
+function unlimitedTestQuota(limit: number): ScreenshotQuotaResult {
+  return {
+    ok: true,
+    count: 0,
+    remaining: Number.MAX_SAFE_INTEGER,
+    limit,
+    tier: "paid",
+    maxImagesPerUse: paidMaxImagesPerUse,
+    paidRemaining: Number.MAX_SAFE_INTEGER,
   };
 }
 

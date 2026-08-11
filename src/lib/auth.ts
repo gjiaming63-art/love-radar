@@ -7,6 +7,7 @@ export type AuthUser = {
   phone: string | null;
   email: string | null;
   displayName: string | null;
+  isTestAccount: boolean;
   createdAt: string;
   lastLoginAt: string | null;
 };
@@ -81,6 +82,7 @@ export async function ensureAuthSchema() {
       ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_test_account BOOLEAN NOT NULL DEFAULT FALSE;
       CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (email) WHERE email IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS sessions (
@@ -130,6 +132,23 @@ function emailCodeHash(email: string, code: string) {
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+export function isTestAccountEmail(email?: string | null) {
+  const normalizedEmail = normalizeEmail(email || "");
+  if (!normalizedEmail) return false;
+  return (process.env.TEST_ACCOUNT_EMAILS || "")
+    .split(",")
+    .map((item) => normalizeEmail(item))
+    .filter(Boolean)
+    .includes(normalizedEmail);
+}
+
+function decorateTestUser(user: AuthUser) {
+  return {
+    ...user,
+    isTestAccount: Boolean(user.isTestAccount) || isTestAccountEmail(user.email),
+  };
 }
 
 export function isValidEmail(email: string) {
@@ -240,11 +259,11 @@ export async function verifyLoginCode(phoneInput: string, codeInput: string) {
         VALUES ($1, $2, NOW())
         ON CONFLICT (phone)
         DO UPDATE SET last_login_at = NOW()
-      RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"
+      RETURNING id, phone, email, display_name AS "displayName", is_test_account AS "isTestAccount", created_at AS "createdAt", last_login_at AS "lastLoginAt"
       `,
       [userId, phone],
     );
-    const user = userResult.rows[0];
+    const user = decorateTestUser(userResult.rows[0]);
     await client.query(
       `INSERT INTO sessions (id, user_id, token_hash, expires_at)
        VALUES ($1, $2, $3, $4)`,
@@ -323,10 +342,10 @@ export async function verifyEmailLoginCode(emailInput: string, codeInput: string
       `INSERT INTO users (id, email, last_login_at) VALUES ($1, $2, NOW())
        ON CONFLICT (email) WHERE email IS NOT NULL
        DO UPDATE SET last_login_at = NOW()
-       RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
+       RETURNING id, phone, email, display_name AS "displayName", is_test_account AS "isTestAccount", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
       [randomUUID(), email],
     );
-    const user = userResult.rows[0];
+    const user = decorateTestUser(userResult.rows[0]);
     await client.query(
       `INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)`,
       [randomUUID(), user.id, tokenHash(sessionToken), expiresAt],
@@ -355,7 +374,7 @@ export async function getUserBySessionToken(token: string): Promise<AuthUser | n
   await ensureAuthSchema();
   const result = await db.query<AuthUser>(
     `
-      SELECT users.id, users.phone, users.email, users.display_name AS "displayName", users.created_at AS "createdAt", users.last_login_at AS "lastLoginAt"
+      SELECT users.id, users.phone, users.email, users.display_name AS "displayName", users.is_test_account AS "isTestAccount", users.created_at AS "createdAt", users.last_login_at AS "lastLoginAt"
       FROM sessions
       JOIN users ON users.id = sessions.user_id
       WHERE sessions.token_hash = $1
@@ -364,7 +383,7 @@ export async function getUserBySessionToken(token: string): Promise<AuthUser | n
     `,
     [tokenHash(token)],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? decorateTestUser(result.rows[0]) : null;
 }
 
 async function sendEmailCode(email: string, code: string): Promise<{ success: boolean; error?: string; devCode?: string }> {
@@ -424,11 +443,11 @@ export async function updateUserProfile(userId: string, displayNameInput: string
     `UPDATE users
      SET display_name = NULLIF($2, '')
      WHERE id = $1
-     RETURNING id, phone, email, display_name AS "displayName", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
+     RETURNING id, phone, email, display_name AS "displayName", is_test_account AS "isTestAccount", created_at AS "createdAt", last_login_at AS "lastLoginAt"`,
     [userId, displayName],
   );
   if (!result.rows[0]) return { success: false, error: "账户不存在，请重新登录。" };
-  return { success: true, user: result.rows[0] };
+  return { success: true, user: decorateTestUser(result.rows[0]) };
 }
 
 export async function getMeOverview(userId: string) {

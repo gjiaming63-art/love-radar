@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     const clientKey = getClientKey(request);
     const user = await getCurrentUser();
-    const quotaStatus = await getScreenshotQuotaStatusForUser(clientKey, dailyLimit, user?.id);
+    const quotaStatus = await getScreenshotQuotaStatusForUser(clientKey, dailyLimit, user?.id, Boolean(user?.isTestAccount));
     const maxImageCount = quotaStatus.maxImagesPerUse;
 
     if (images.length > maxImageCount) {
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const quota = await consumeScreenshotQuota(clientKey, dailyLimit, images.length, user?.id);
+    const quota = await consumeScreenshotQuota(clientKey, dailyLimit, images.length, user?.id, Boolean(user?.isTestAccount));
     if (!quota.ok) {
       return NextResponse.json(
         {

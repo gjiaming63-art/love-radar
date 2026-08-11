@@ -5,6 +5,7 @@ import { analyzeChatWithDeepSeek, createInsufficientReport } from "@/lib/deepsee
 import { analysisModes, type AnalysisMode, type ParsedChatImageMessage, type RoleContext } from "@/types/report";
 import { consumeTextQuota } from "@/lib/text-usage";
 import { getClientKey } from "@/lib/screenshot-usage";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -54,7 +55,8 @@ export async function POST(request: Request) {
         : undefined;
 
     const report = await analyzeChatWithDeepSeek(chatText, mode, roleContext, locale);
-    if (locale === "en-US") {
+    const user = await getCurrentUser();
+    if (locale === "en-US" && !user?.isTestAccount) {
       const quota = await consumeTextQuota(getClientKey(request), locale, 3);
       if (!quota.ok) {
         return NextResponse.json({ code: "TEXT_DAILY_LIMIT_REACHED", error: "Your free text analyses for today are used up.", ...quota }, { status: 429 });

@@ -20,7 +20,10 @@ async function fetchReport(id: string) {
   const host = headerStore.get("host");
   if (!host) return null;
   const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
-  const response = await fetch(`${protocol}://${host}/api/reports/${id}`, { cache: "no-store" });
+  const response = await fetch(`${protocol}://${host}/api/reports/${id}`, {
+    cache: "no-store",
+    headers: { cookie: headerStore.get("cookie") ?? "" },
+  });
   if (!response.ok) return null;
   const payload = (await response.json()) as { report?: LoveReport & { id: string } };
   return payload.report ?? null;

@@ -234,7 +234,7 @@ function ttlDate() {
   return expiresAt;
 }
 
-export async function saveReport(report: LoveReport) {
+export async function saveReport(report: LoveReport, userId?: string) {
   const id = randomUUID();
   const deleteToken = randomBytes(24).toString("base64url");
   const deleteTokenHash = hashToken(deleteToken);
@@ -278,8 +278,8 @@ export async function saveReport(report: LoveReport) {
 
   await db.query(
     `INSERT INTO love_reports
-      (id, scores, tags, summary, evidence_excerpt, advice, mode, relationship, delete_token_hash, is_paid, paid_at, locale, input_type, analysis_language, created_at, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, NULL, $10, $11, $12, $13, $14)`,
+      (id, scores, tags, summary, evidence_excerpt, advice, mode, relationship, delete_token_hash, is_paid, paid_at, locale, input_type, analysis_language, user_id, created_at, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
     [
       id,
       JSON.stringify(stored.scores),
@@ -290,9 +290,12 @@ export async function saveReport(report: LoveReport) {
       stored.mode ?? "comprehensive",
       JSON.stringify(relationship),
       deleteTokenHash,
+      stored.isPaid,
+      stored.isPaid ? stored.paidAt ?? createdAt : null,
       stored.locale ?? "zh-CN",
       stored.inputType ?? "text",
       stored.analysisLanguage ?? stored.locale ?? "zh-CN",
+      userId ?? null,
       createdAt,
       expiresAt,
     ],

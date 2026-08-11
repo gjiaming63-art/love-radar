@@ -30,7 +30,7 @@ export function EnglishAnalyzeForm() {
   const isScreenshotConversation = Boolean(parsedMessages?.length);
 
   async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
-    const selectedImages = Array.from(event.target.files ?? []).slice(0, 4);
+    const selectedImages = Array.from(event.target.files ?? []).slice(0, 8);
     event.target.value = "";
     if (!selectedImages.length) return;
 
