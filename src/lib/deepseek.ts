@@ -52,7 +52,7 @@ function stringList(value: unknown, fallback: string[], limit: number) {
   return items.length ? items : fallback;
 }
 
-function evidenceList(value: unknown, fallback: EvidenceItem[], limit: number) {
+function evidenceList(value: unknown, fallback: EvidenceItem[], limit: number, locale: "zh-CN" | "en-US" = "zh-CN") {
   if (!Array.isArray(value)) return fallback;
   const items = value
     .map((item) => {
@@ -60,12 +60,19 @@ function evidenceList(value: unknown, fallback: EvidenceItem[], limit: number) {
       return {
         quote: compactText(String(input.quote ?? ""), 90),
         reason: compactText(String(input.reason ?? ""), 140),
-        strength: normalizeStrength(input.strength),
+        strength: locale === "en-US" ? normalizeEnglishStrength(input.strength) : normalizeStrength(input.strength),
       };
     })
     .filter((item) => item.quote && item.reason)
     .slice(0, limit);
   return items.length ? items : fallback;
+}
+
+function normalizeEnglishStrength(value: unknown): "Strong" | "Medium" | "Weak" {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("strong") || text.includes("high") || text.includes("强")) return "Strong";
+  if (text.includes("weak") || text.includes("low") || text.includes("弱")) return "Weak";
+  return "Medium";
 }
 
 function normalizeStrength(value: unknown): "强" | "中" | "弱" {
@@ -248,11 +255,13 @@ function normalizeReport(value: unknown, mode: AnalysisMode, locale: "zh-CN" | "
       input.redFlags,
       [{ quote: english ? "Not enough chat context" : "聊天记录不足", reason: english ? "There is not enough context for stable evidence." : "缺少足够上下文，无法提取稳定风险证据。", strength: "弱" }],
       4,
+      locale,
     ),
     greenFlags: evidenceList(
       input.greenFlags,
       [{ quote: english ? "Worth observing" : "仍可继续观察", reason: english ? "This fragment should not be treated as a definite verdict." : "仅凭当前片段不宜做绝对判断。", strength: "弱" }],
       4,
+      locale,
     ),
     behaviorPattern: compactText(
       String(input.behaviorPattern || (english ? "This fragment is not enough to identify a stable behavior pattern." : "当前片段不足以判断稳定行为模式。")),
@@ -361,6 +370,56 @@ export async function analyzeChatWithDeepSeek(
     throw new Error("服务端未配置 DEEPSEEK_API_KEY，无法生成真实 AI 报告。");
   }
 
+  const englishPrompt = `Analysis mode: ${modeLabel(mode, "en-US")}
+
+Role context:
+${roleInstruction(roleContext, "en-US")}
+
+You must analyze only the supplied conversation and return English text in every human-readable field. Do not output Chinese, even if the chat contains Chinese. Keep evidence quotes in their original language, but write every reason, label, summary, suggestion, action plan field, and share card sentence in English.
+
+Rules:
+1. Scores, tags, suggestions, and conclusions must change when the supplied chat changes.
+2. redFlags and greenFlags must quote exact sentences from the chat. Never invent evidence.
+3. If context is insufficient, set riskLevel to "Insufficient context" and explain the limitation in English without forcing a verdict.
+4. Use "you" and "the other person", or "Person A" and "Person B". Do not expose usernames in the output.
+5. Do not diagnose mental health, make absolute judgments, insult anyone, or encourage extreme behavior.
+6. Be slightly forgiving: one short reply, one delayed response, or a normal explanation of being busy is not enough for a high-risk score.
+7. High risk requires repeated evidence or a clear pattern. Emotional manipulation requires clear belittling, threats, isolation, control, or repeated blame.
+8. Include confidence, evidence strength, relationship trend, and an actionable plan with gentle, clear-boundary, and light-check-in reply options.
+9. Use only these English evidence strength values: "Strong", "Medium", or "Weak".
+10. Use an English relationship trend label such as "Warming", "Stable", "Push-pull", "Cooling", "Stalled", "Near no-contact", or "Insufficient data".
+
+Return strict JSON only with exactly this structure:
+{
+  "overallScore": 78,
+  "riskLevel": "Moderate risk",
+  "relationshipStage": "Talking stage",
+  "summary": "A concise English summary grounded in the conversation.",
+  "scores": { "sincerity": 42, "avoidance": 55, "coldViolence": 20, "breadcrumbing": 45, "manipulation": 15, "overInvestmentRisk": 60 },
+  "riskTags": ["Mixed signals", "Low clarity"],
+  "confidence": { "level": "Medium", "reason": "Explain how reliable the sample is.", "messageCount": 20, "speakerBalance": "Describe the balance in English.", "limitations": ["Name a limitation in English."] },
+  "relationshipTrend": { "label": "Push-pull", "reason": "Explain the trend in English." },
+  "redFlags": [{ "quote": "Exact sentence from the chat", "reason": "Explain the concern in English.", "strength": "Medium" }],
+  "greenFlags": [{ "quote": "Exact sentence from the chat", "reason": "Explain the positive signal in English.", "strength": "Medium" }],
+  "behaviorPattern": "Describe the observed communication pattern in English.",
+  "suggestions": ["Give practical advice in English."],
+  "replyExamples": ["Give a natural English reply."],
+  "actionPlan": {
+    "strategy": "Give the main next step in English.",
+    "nextReplies": [
+      { "style": "Gentle check-in", "text": "A natural English reply." },
+      { "style": "Clear boundary", "text": "A natural English reply." },
+      { "style": "Light check-in", "text": "A natural English reply." }
+    ],
+    "ifThen": [{ "scenario": "If they respond openly", "advice": "Give advice in English." }],
+    "dontDo": ["Give a calm thing to avoid in English."]
+  },
+  "shareCardText": "A short English share-card sentence."
+}
+
+Conversation:
+${chatText.slice(0, 12000)}`;
+
   const messages: DeepSeekMessage[] = [
     {
       role: "system",
@@ -369,13 +428,13 @@ export async function analyzeChatWithDeepSeek(
     },
     {
       role: "user",
-      content: `${locale === "en-US" ? "Analysis mode" : "分析模式"}: ${modeLabel(mode, locale)}
+      content: locale === "en-US" ? englishPrompt : `${(locale as "zh-CN" | "en-US") === "en-US" ? "Analysis mode" : "分析模式"}: ${modeLabel(mode, locale)}
 
 角色信息：
 ${roleInstruction(roleContext, locale)}
 
 任务：
-1. ${locale === "en-US" ? "Base every score, tag, suggestion, and conclusion on the supplied chat. Scores must change when the chat changes." : "必须基于下面的聊天记录动态分析，分数必须随聊天内容变化。"}
+1. ${(locale as "zh-CN" | "en-US") === "en-US" ? "Base every score, tag, suggestion, and conclusion on the supplied chat. Scores must change when the chat changes." : "必须基于下面的聊天记录动态分析，分数必须随聊天内容变化。"}
 2. redFlags 和 greenFlags 必须引用聊天记录中的具体原句；不要引用不存在的句子。
 3. 如果信息不足，明确返回 riskLevel 为“信息不足”，summary 说明原因，分数降低置信度，不要强行判断。
 4. 最终报告用“你/对方”或“A方/B方”，不要泄露微信昵称。
