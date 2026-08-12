@@ -41,17 +41,18 @@ export function EnglishAnalyzeForm() {
     setStage("reading");
 
     try {
+      const uploadImages = await Promise.all(selectedImages.map((file) => compressImageForUpload(file)));
       const form = new FormData();
       form.append("locale", "en-US");
-      selectedImages.forEach((file) => form.append("images", file));
+      uploadImages.forEach((file) => form.append("images", file));
       const response = await fetch("/api/parse-chat-image", { method: "POST", body: form });
       const payload = await response.json();
-      if (!response.ok || !payload.parsed?.chatText || !payload.parsed?.messages?.length) {
+      if (!response.ok || !payload.parsed?.chatText) {
         throw new Error(payload.error || "Could not read these screenshots.");
       }
 
       setText(payload.parsed.chatText);
-      setParsedMessages(payload.parsed.messages);
+      setParsedMessages(payload.parsed.messages?.length ? payload.parsed.messages : null);
     } catch (cause) {
       setImages([]);
       setParsedMessages(null);
@@ -166,4 +167,90 @@ export function EnglishAnalyzeForm() {
       <Button type="button" size="lg" className="w-full" onClick={analyze} disabled={loading || stage === "reading"}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading ? enUS.analyzing : enUS.generate}</Button>
     </section>
   );
+}
+
+async function compressImageForUpload(file: File) {
+  if (typeof window === "undefined") return file;
+  if (!file.type.startsWith("image/")) return file;
+  if (file.size <= 2.2 * 1024 * 1024) return file;
+
+  const image = await loadImageForCompression(file);
+  if (!image) return file;
+
+  const maxSide = 1800;
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    closeLoadedImage(image);
+    return file;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image.source, 0, 0, width, height);
+  closeLoadedImage(image);
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.9);
+  });
+
+  if (!blob || blob.size >= file.size) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+type LoadedImage = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  objectUrl?: string;
+  close?: () => void;
+};
+
+async function loadImageForCompression(file: File): Promise<LoadedImage | null> {
+  if ("createImageBitmap" in window) {
+    const bitmap = await window.createImageBitmap(file).catch(() => null);
+    if (bitmap) {
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => bitmap.close(),
+      };
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+  image.decoding = "async";
+  image.src = objectUrl;
+
+  const loaded = await new Promise<HTMLImageElement | null>((resolve) => {
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+  });
+
+  if (!loaded) {
+    URL.revokeObjectURL(objectUrl);
+    return null;
+  }
+
+  return {
+    source: loaded,
+    width: loaded.naturalWidth || loaded.width,
+    height: loaded.naturalHeight || loaded.height,
+    objectUrl,
+  };
+}
+
+function closeLoadedImage(image: LoadedImage) {
+  image.close?.();
+  if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
 }

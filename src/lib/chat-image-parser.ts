@@ -23,6 +23,8 @@ type ChatImageInput = {
   mimeType: string;
 };
 
+type ParseMode = "structured" | "relaxed" | "transcript";
+
 function getQwenConfig() {
   return {
     apiKey:
@@ -125,16 +127,67 @@ export async function parseChatImagesWithQwen(
   }));
 
   try {
-    return await parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, false), locale);
+    return await parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, "structured"), locale);
   } catch (error) {
-    console.warn("Qwen strict parse failed, retrying with relaxed prompt:", error);
-    return parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, true), locale);
+    console.warn("Qwen structured parse failed, retrying with relaxed prompt:", error);
+    try {
+      return await parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, "relaxed"), locale);
+    } catch (relaxedError) {
+      if (!shouldTryTranscriptFallback(relaxedError)) throw relaxedError;
+      console.warn("Qwen relaxed parse failed, retrying with transcript fallback:", relaxedError);
+      return parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, "transcript"), locale);
+    }
   }
 }
 
-function buildVisualPrompt(locale: "zh-CN" | "en-US", relaxed: boolean) {
+function shouldTryTranscriptFallback(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /parse any readable|empty messages|No chat bubbles|did not return JSON|empty response|returned an empty/i.test(message);
+}
+
+function buildVisualPrompt(locale: "zh-CN" | "en-US", mode: ParseMode) {
   const jsonShape =
     '{"messages":[{"speaker":"user","text":"exact message text","sourceImageIndex":1,"confidence":0.92},{"speaker":"target","text":"exact message text","sourceImageIndex":1,"confidence":0.88}],"participants":{"userLabel":"Me","targetLabel":"Other"},"warnings":[],"chatText":"Me: exact message text\\nOther: exact message text"}';
+
+  if (mode === "transcript") {
+    return locale === "en-US"
+      ? `You are a chat screenshot OCR and transcript extractor for Love Radar AI.
+
+Your only task: read any visible conversation text from the screenshots and turn it into usable chat text.
+
+This is a fallback mode. Be permissive:
+- Supported apps include Instagram DM, iMessage, WhatsApp, Messenger, TikTok DM, WeChat, Telegram, LINE, Snapchat, and similar chat screens.
+- Extract readable message text from the central conversation area, top to bottom.
+- If you can infer sides, use speaker "user" for right-side messages and "target" for left-side messages.
+- If side is unclear, still include the text and alternate speakers only when it is clearly a back-and-forth conversation.
+- Ignore app chrome, username header, status bar, timestamps, Seen/Delivered, keyboard, input field, and navigation.
+- Do not invent missing words. Keep partial readable messages with lower confidence.
+- Replace sensitive phone numbers, addresses, IDs, schools, and companies with [REDACTED].
+- Do not analyze. Return strict JSON only.
+
+Important: If there is any readable chat-like text, do not return an empty messages array.
+
+JSON shape:
+${jsonShape}`
+      : `你是 Love Radar 的聊天截图文字提取器。
+
+现在是兜底模式：请尽量读取截图中聊天区域的可见文字，并转换成可分析的聊天记录。
+
+规则：
+1. 支持 Instagram DM、iMessage、WhatsApp、Messenger、TikTok 私信、微信、Telegram、LINE、Snapchat 等聊天截图。
+2. 按从上到下的顺序提取聊天区域里的消息文字。
+3. 如果能判断左右，右侧消息标为 "user"，左侧消息标为 "target"。
+4. 如果左右不清楚，也要尽量提取文字；只有明显一来一回时才交替标注。
+5. 忽略状态栏、昵称栏、时间、Seen/Delivered、键盘、输入框、底部导航等非聊天内容。
+6. 不要编造看不清的内容，只保留能读出的部分。
+7. 手机号、地址、身份证、学校、公司等敏感信息用 [REDACTED] 替换。
+8. 不做关系分析，只返回严格 JSON。
+
+重要：只要图中有任何像聊天的可读文字，就不要返回空 messages。
+
+JSON 结构：
+${jsonShape}`;
+  }
 
   if (locale === "en-US") {
     return `You are Love Radar AI's visual chat screenshot parser. Read the screenshot as a conversation screenshot, not as a generic image.
@@ -151,7 +204,7 @@ Rules:
 7. Replace phone numbers, addresses, IDs, schools, and companies with [REDACTED].
 8. Do not analyze the relationship. Return structured messages only.
 9. Return strict JSON only, no Markdown.
-${relaxed ? "10. IMPORTANT: Do not return an empty messages array if there is any readable conversation text. Be permissive and extract short messages, emojis, and reply snippets." : ""}
+${mode === "relaxed" ? "10. IMPORTANT: Do not return an empty messages array if there is any readable conversation text. Be permissive and extract short messages, emojis, and reply snippets." : ""}
 
 JSON shape:
 ${jsonShape}`;
@@ -163,7 +216,7 @@ ${jsonShape}`;
 
 规则：
 1. 按视觉顺序从上到下提取真实消息文本。
-2. Instagram DM 和大多数聊天软件里，右侧气泡/消息是用户本人，speaker 填 "user"；左侧气泡/消息是对方，speaker 填 "target"。
+2. Instagram DM 和多数聊天软件里，右侧气泡/消息是用户本人，speaker 填 "user"；左侧气泡/消息是对方，speaker 填 "target"。
 3. 右侧蓝色、紫色、渐变色、彩色消息通常是用户；左侧灰色、白色、深色消息通常是对方。
 4. 忽略状态栏、昵称栏、资料按钮、时间、Seen/Delivered、已读提示、表情反应计数、键盘、输入框、相机/语音按钮、广告、底部导航。
 5. 不要强制要求完美气泡。Instagram DM 可能是紧凑消息行、深色模式文字、转发帖子、回复片段、表情反应或图片占位。只要是聊天区域里的可读消息，就要提取。
@@ -171,7 +224,7 @@ ${jsonShape}`;
 7. 手机号、地址、身份证、学校、公司等敏感信息用 [REDACTED] 替换。
 8. 不做恋爱分析，不给建议，只返回结构化消息。
 9. 只返回严格 JSON，不要 Markdown。
-${relaxed ? "10. 重要：只要图里存在任何可读聊天内容，就不要返回空 messages。请宽松提取短句、表情和回复片段。" : ""}
+${mode === "relaxed" ? "10. 重要：只要图里存在任何可读聊天内容，就不要返回空 messages。请宽松提取短句、表情和回复片段。" : ""}
 
 JSON 结构：
 ${jsonShape}`;
