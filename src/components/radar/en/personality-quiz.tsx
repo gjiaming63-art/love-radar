@@ -93,16 +93,16 @@ function GenderStep({ onChoose }: { onChoose: (gender: EnglishPersonalityGender)
     <Card className="mt-8 border-primary/25 bg-card/90">
       <CardHeader className="space-y-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-2xl">♡</div>
-        <CardTitle className="text-2xl">First, choose how you want your result framed.</CardTitle>
+        <CardTitle className="text-2xl">What&apos;s your gender?</CardTitle>
         <p className="text-sm leading-6 text-muted-foreground">
-          This only changes the representative character shown on your result. It does not affect your score and is not saved.
+          We&apos;ll use this to match your result with a character reference. Your answer is not saved.
         </p>
       </CardHeader>
       <CardContent className="grid gap-3">
         {[
-          ["male", "Male character"],
-          ["female", "Female character"],
-          ["private", "Surprise me"],
+          ["male", "Male"],
+          ["female", "Female"],
+          ["private", "Prefer not to say"],
         ].map(([value, label]) => (
           <Button
             key={value}
