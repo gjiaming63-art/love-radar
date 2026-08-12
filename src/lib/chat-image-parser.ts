@@ -43,7 +43,7 @@ function extractJson(text: string) {
   const raw = fenced?.[1] ?? text;
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
-  if (start < 0 || end < start) throw new Error("视觉模型没有返回 JSON。");
+  if (start < 0 || end < start) throw new Error("The vision model did not return JSON.");
   return raw.slice(start, end + 1);
 }
 
@@ -52,6 +52,11 @@ function extractContent(data: QwenResponse) {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) return content.map((item) => item.text ?? "").join("\n");
   return "";
+}
+
+function labelForSpeaker(speaker: ParsedChatImageMessage["speaker"], locale: "zh-CN" | "en-US") {
+  if (speaker === "user") return locale === "en-US" ? "Me" : "我";
+  return locale === "en-US" ? "Other" : "对方";
 }
 
 function normalizeParsedResult(value: unknown, locale: "zh-CN" | "en-US"): ParsedChatImageResult {
@@ -79,18 +84,18 @@ function normalizeParsedResult(value: unknown, locale: "zh-CN" | "en-US"): Parse
 
   const safeMessages = messages as ParsedChatImageMessage[];
   const chatText =
-    safeMessages.map((item) => `${item.speaker === "user" ? (locale === "en-US" ? "Me" : "我") : (locale === "en-US" ? "Other" : "对方")}：${item.text}`).join("\n") ||
+    safeMessages.map((item) => `${labelForSpeaker(item.speaker, locale)}: ${item.text}`).join("\n") ||
     compactText(String(input.chatText || ""), 12000);
 
   if (!safeMessages.length && !chatText.trim()) {
-    throw new Error("视觉模型没有从截图中解析出有效聊天气泡。");
+    throw new Error("The vision model did not parse any readable chat messages from the screenshot.");
   }
 
   return {
     messages: safeMessages,
     participants: {
-      userLabel: compactText(String(input.participants?.userLabel || (locale === "en-US" ? "Me" : "我")), 20),
-      targetLabel: compactText(String(input.participants?.targetLabel || (locale === "en-US" ? "Other" : "对方")), 20),
+      userLabel: compactText(String(input.participants?.userLabel || labelForSpeaker("user", locale)), 20),
+      targetLabel: compactText(String(input.participants?.targetLabel || labelForSpeaker("target", locale)), 20),
     },
     warnings: Array.isArray(input.warnings)
       ? input.warnings.map((item) => compactText(String(item || ""), 120)).filter(Boolean).slice(0, 5)
@@ -100,13 +105,16 @@ function normalizeParsedResult(value: unknown, locale: "zh-CN" | "en-US"): Parse
 }
 
 export function parsedMessagesToChatText(messages: ParsedChatImageMessage[], locale: "zh-CN" | "en-US" = "zh-CN") {
-  return messages.map((item) => `${item.speaker === "user" ? (locale === "en-US" ? "Me" : "我") : (locale === "en-US" ? "Other" : "对方")}：${item.text}`).join("\n");
+  return messages.map((item) => `${labelForSpeaker(item.speaker, locale)}: ${item.text}`).join("\n");
 }
 
-export async function parseChatImagesWithQwen(images: ChatImageInput[], locale: "zh-CN" | "en-US" = "zh-CN"): Promise<ParsedChatImageResult> {
+export async function parseChatImagesWithQwen(
+  images: ChatImageInput[],
+  locale: "zh-CN" | "en-US" = "zh-CN",
+): Promise<ParsedChatImageResult> {
   const { apiKey, baseUrl, model } = getQwenConfig();
   if (!apiKey) {
-    throw new Error("服务端未配置 QWEN_VL_API_KEY 或 DASHSCOPE_API_KEY，暂时不能智能解析聊天截图。");
+    throw new Error("Screenshot analysis is not configured because QWEN_VL_API_KEY or DASHSCOPE_API_KEY is missing.");
   }
 
   const imageContent: QwenMessageContent[] = images.map((image) => ({
@@ -116,55 +124,69 @@ export async function parseChatImagesWithQwen(images: ChatImageInput[], locale: 
     },
   }));
 
-  const prompt = locale === "en-US" ? `You are the visual conversation parser for Love Radar AI. Understand the screenshot visually, not as OCR-only text.
+  try {
+    return await parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, false), locale);
+  } catch (error) {
+    console.warn("Qwen strict parse failed, retrying with relaxed prompt:", error);
+    return parseWithPrompt(baseUrl, apiKey, model, imageContent, buildVisualPrompt(locale, true), locale);
+  }
+}
+
+function buildVisualPrompt(locale: "zh-CN" | "en-US", relaxed: boolean) {
+  const jsonShape =
+    '{"messages":[{"speaker":"user","text":"exact message text","sourceImageIndex":1,"confidence":0.92},{"speaker":"target","text":"exact message text","sourceImageIndex":1,"confidence":0.88}],"participants":{"userLabel":"Me","targetLabel":"Other"},"warnings":[],"chatText":"Me: exact message text\\nOther: exact message text"}';
+
+  if (locale === "en-US") {
+    return `You are Love Radar AI's visual chat screenshot parser. Read the screenshot as a conversation screenshot, not as a generic image.
+
+Supported apps include Instagram DM, iMessage, WhatsApp, Messenger, TikTok DM, WeChat, Telegram, LINE, Snapchat, and similar chat UIs.
 
 Rules:
-1. Join multiple images in upload order.
-2. The right bubble is the user (speaker "user"); the left bubble is the other person (speaker "target").
-3. Extract only real chat bubbles. Ignore timestamps, dates, contact headers, status bars, battery/network icons, buttons, keyboards, ads, and input boxes.
-4. Skip unreadable bubbles instead of inventing text.
-5. Do not analyze the relationship or give advice. Return structured messages only.
-6. Replace phone numbers, addresses, IDs, schools, and companies with [REDACTED].
-7. Return strict JSON only.
+1. Extract actual message text in visual order, top to bottom.
+2. For Instagram DM and most chat apps: right-side bubbles/messages are the user, speaker "user"; left-side bubbles/messages are the other person, speaker "target".
+3. Right-side blue, purple, gradient, or colored messages usually mean "user". Left-side gray, white, or dark messages usually mean "target".
+4. Ignore app chrome: status bar, username header, profile buttons, timestamps, "Seen", "Delivered", reaction counters, keyboard, input box, camera/mic icons, ads, and navigation.
+5. Do not require perfect rounded bubbles. Instagram DMs may show compact rows, dark mode text, shared posts, replies, reactions, or image placeholders. Extract any readable message-like text from the conversation area.
+6. If a message is partially readable, include the readable part and lower confidence. Do not invent missing words.
+7. Replace phone numbers, addresses, IDs, schools, and companies with [REDACTED].
+8. Do not analyze the relationship. Return structured messages only.
+9. Return strict JSON only, no Markdown.
+${relaxed ? "10. IMPORTANT: Do not return an empty messages array if there is any readable conversation text. Be permissive and extract short messages, emojis, and reply snippets." : ""}
 
 JSON shape:
-{"messages":[{"speaker":"user","text":"exact bubble text","sourceImageIndex":1,"confidence":0.92},{"speaker":"target","text":"exact bubble text","sourceImageIndex":1,"confidence":0.88}],"participants":{"userLabel":"Me","targetLabel":"Other"},"warnings":[],"chatText":"Me：exact bubble text\\nOther：exact bubble text"}` : `你是 Love Radar 的聊天截图视觉解析器。请直接看懂微信/聊天软件截图，不要只做 OCR。
+${jsonShape}`;
+  }
 
-核心规则：
-1. 多张图按用户上传顺序拼接，先处理第 1 张，再处理第 2 张，以此类推。
-2. 必须识别聊天气泡左右关系：右侧气泡统一视为用户本人，speaker 填 "user"；左侧气泡统一视为对方，speaker 填 "target"。
-3. 只提取真实聊天气泡内容。过滤时间、日期、备注、昵称栏、状态栏、电量、网络、返回按钮、输入框、键盘、转账按钮、表情面板、系统 UI、广告、底部菜单。
-4. 如果某个气泡文字不完整或看不清，可以跳过或在 warnings 说明，不要编造。
-5. 不分析恋爱关系，不输出建议，只做结构化解析。
-6. 不要泄露截图中可能出现的手机号、地址、身份证、公司、学校等敏感信息；遇到这类信息用 [已打码] 替代。
-7. 只返回严格 JSON，不要 Markdown，不要解释。禁止输出 JSON 之外的任何文字。
+  return `你是 Love Radar 的聊天截图视觉解析器。请把图片当作聊天软件截图来读，不要当作普通图片。
 
-返回 JSON 结构：
-{
-  "messages": [
-    {
-      "speaker": "user",
-      "text": "气泡里的原句",
-      "sourceImageIndex": 1,
-      "confidence": 0.92
-    },
-    {
-      "speaker": "target",
-      "text": "气泡里的原句",
-      "sourceImageIndex": 1,
-      "confidence": 0.88
-    }
-  ],
-  "participants": {
-    "userLabel": "我",
-    "targetLabel": "对方"
-  },
-  "warnings": [],
-  "chatText": "我：气泡里的原句\\n对方：气泡里的原句"
-}`;
+支持的软件包括 Instagram DM、iMessage、WhatsApp、Messenger、TikTok 私信、微信、Telegram、LINE、Snapchat 等聊天界面。
 
+规则：
+1. 按视觉顺序从上到下提取真实消息文本。
+2. Instagram DM 和大多数聊天软件里，右侧气泡/消息是用户本人，speaker 填 "user"；左侧气泡/消息是对方，speaker 填 "target"。
+3. 右侧蓝色、紫色、渐变色、彩色消息通常是用户；左侧灰色、白色、深色消息通常是对方。
+4. 忽略状态栏、昵称栏、资料按钮、时间、Seen/Delivered、已读提示、表情反应计数、键盘、输入框、相机/语音按钮、广告、底部导航。
+5. 不要强制要求完美气泡。Instagram DM 可能是紧凑消息行、深色模式文字、转发帖子、回复片段、表情反应或图片占位。只要是聊天区域里的可读消息，就要提取。
+6. 如果一条消息只能看清一部分，就提取看清的部分并降低 confidence，不要编造。
+7. 手机号、地址、身份证、学校、公司等敏感信息用 [REDACTED] 替换。
+8. 不做恋爱分析，不给建议，只返回结构化消息。
+9. 只返回严格 JSON，不要 Markdown。
+${relaxed ? "10. 重要：只要图里存在任何可读聊天内容，就不要返回空 messages。请宽松提取短句、表情和回复片段。" : ""}
+
+JSON 结构：
+${jsonShape}`;
+}
+
+async function parseWithPrompt(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  imageContent: QwenMessageContent[],
+  prompt: string,
+  locale: "zh-CN" | "en-US",
+) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 55000);
 
   let response: Response;
   try {
@@ -183,13 +205,13 @@ JSON shape:
             content: [{ type: "text", text: prompt }, ...imageContent],
           },
         ],
-        temperature: 0.1,
-        max_tokens: 1800,
+        temperature: 0.05,
+        max_tokens: 2200,
       }),
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("聊天截图解析超时，请先上传 1 张更清晰的截图。");
+      throw new Error("Chat screenshot parsing timed out. Please try one clearer screenshot first.");
     }
     throw error;
   } finally {
@@ -198,12 +220,12 @@ JSON shape:
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error(`视觉解析失败：${response.status}${detail ? ` ${detail}` : ""}`);
+    throw new Error(`Vision parsing failed: ${response.status}${detail ? ` ${detail}` : ""}`);
   }
 
   const data = (await response.json()) as QwenResponse;
   const content = extractContent(data);
-  if (!content) throw new Error("视觉模型返回为空。");
+  if (!content) throw new Error("The vision model returned an empty response.");
   try {
     return normalizeParsedResult(JSON.parse(extractJson(content)), locale);
   } catch (error) {
