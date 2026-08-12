@@ -16,12 +16,10 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   let locale: "zh-CN" | "en-US" = "zh-CN";
   try {
-    const formData = await request.formData();
-    locale = formData.get("locale") === "en-US" ? "en-US" : "zh-CN";
+    const body = await readImageRequest(request);
+    locale = body.locale;
     const dailyLimit = locale === "en-US" ? 1 : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2);
-    const images = formData.getAll("images").filter((item): item is File => item instanceof File);
-    const legacyImage = formData.get("image");
-    if (!images.length && legacyImage instanceof File) images.push(legacyImage);
+    const images = body.images;
 
     if (!images.length) {
       return NextResponse.json({ error: imageError(locale, "missing") }, { status: 400 });
@@ -49,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     for (const image of images) {
-      if (!allowedTypes.has(image.type)) {
+      if (!allowedTypes.has(image.mimeType)) {
         return NextResponse.json({ error: imageError(locale, "type") }, { status: 400 });
       }
       if (image.size > maxImageSize) {
@@ -76,15 +74,10 @@ export async function POST(request: Request) {
     console.log(
       "parse-chat-image received:",
       images.length,
-      images.map((image) => `${image.type}:${image.size}`).join(","),
+      images.map((image) => `${image.mimeType}:${image.size}:${image.source}`).join(","),
     );
 
-    const inputs = await Promise.all(
-      images.map(async (image) => ({
-        mimeType: image.type,
-        base64: Buffer.from(await image.arrayBuffer()).toString("base64"),
-      })),
-    );
+    const inputs = images.map((image) => ({ mimeType: image.mimeType, base64: image.base64 }));
     const batches = chunk(inputs, parseBatchSize);
     const batchResults = await Promise.allSettled(
       batches.map(async (batch, batchIndex) => {
@@ -124,6 +117,76 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "";
     return NextResponse.json({ error: friendlyImageParseError(message, locale) }, { status: 500 });
   }
+}
+
+type ImageRequestItem = {
+  mimeType: string;
+  base64: string;
+  size: number;
+  source: "form" | "json";
+};
+
+async function readImageRequest(request: Request): Promise<{ locale: "zh-CN" | "en-US"; images: ImageRequestItem[] }> {
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const body = (await request.json()) as {
+      locale?: "zh-CN" | "en-US";
+      images?: { mimeType?: string; base64?: string; dataUrl?: string }[];
+    };
+    const images: ImageRequestItem[] = [];
+    for (const image of body.images || []) {
+      const normalized = normalizeJsonImage(image);
+      if (normalized) images.push(normalized);
+    }
+    return {
+      locale: body.locale === "en-US" ? "en-US" : "zh-CN",
+      images,
+    };
+  }
+
+  const formData = await request.formData();
+  const locale = formData.get("locale") === "en-US" ? "en-US" : "zh-CN";
+  const files = formData.getAll("images").filter((item): item is File => item instanceof File);
+  const legacyImage = formData.get("image");
+  if (!files.length && legacyImage instanceof File) files.push(legacyImage);
+  return {
+    locale,
+    images: await Promise.all(
+      files.map(async (image) => ({
+        mimeType: image.type,
+        base64: Buffer.from(await image.arrayBuffer()).toString("base64"),
+        size: image.size,
+        source: "form" as const,
+      })),
+    ),
+  };
+}
+
+function normalizeJsonImage(image: { mimeType?: string; base64?: string; dataUrl?: string }) {
+  const fromDataUrl = parseDataUrl(image.dataUrl || "");
+  const mimeType = compactMimeType(image.mimeType || fromDataUrl?.mimeType || "");
+  const base64 = compactBase64(image.base64 || fromDataUrl?.base64 || "");
+  if (!mimeType || !base64) return null;
+  return {
+    mimeType,
+    base64,
+    size: Math.ceil((base64.length * 3) / 4),
+    source: "json" as const,
+  };
+}
+
+function parseDataUrl(value: string) {
+  const match = value.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) return null;
+  return { mimeType: match[1], base64: match[2] };
+}
+
+function compactMimeType(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function compactBase64(value: string) {
+  return value.replace(/^data:[^;,]+;base64,/i, "").replace(/\s/g, "");
 }
 
 function imageError(

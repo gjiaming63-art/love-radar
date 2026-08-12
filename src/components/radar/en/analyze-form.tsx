@@ -41,10 +41,7 @@ export function EnglishAnalyzeForm() {
     setStage("reading");
 
     try {
-      const form = new FormData();
-      form.append("locale", "en-US");
-      selectedImages.forEach((file) => form.append("images", file));
-      const response = await fetch("/api/parse-chat-image", { method: "POST", body: form });
+      const response = await uploadScreenshotsForParsing(selectedImages);
       const payload = await response.json();
       if (!response.ok || !payload.parsed?.chatText) {
         throw new Error(payload.error || "Could not read these screenshots.");
@@ -171,4 +168,41 @@ export function EnglishAnalyzeForm() {
       <Button type="button" size="lg" className="w-full" onClick={analyze} disabled={loading || stage === "reading"}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading ? enUS.analyzing : enUS.generate}</Button>
     </section>
   );
+}
+
+async function uploadScreenshotsForParsing(files: File[]) {
+  try {
+    const images = await Promise.all(files.map((file) => fileToBase64Payload(file)));
+    return await fetch("/api/parse-chat-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale: "en-US", images }),
+    });
+  } catch (error) {
+    console.warn("Base64 screenshot upload failed, falling back to FormData:", error);
+    const form = new FormData();
+    form.append("locale", "en-US");
+    files.forEach((file) => form.append("images", file));
+    return fetch("/api/parse-chat-image", { method: "POST", body: form });
+  }
+}
+
+function fileToBase64Payload(file: File): Promise<{ mimeType: string; base64: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read this screenshot from your device."));
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const commaIndex = result.indexOf(",");
+      if (!result || commaIndex < 0) {
+        reject(new Error("Could not prepare this screenshot for upload."));
+        return;
+      }
+      resolve({
+        mimeType: file.type || "image/jpeg",
+        base64: result.slice(commaIndex + 1),
+      });
+    };
+    reader.readAsDataURL(file);
+  });
 }
