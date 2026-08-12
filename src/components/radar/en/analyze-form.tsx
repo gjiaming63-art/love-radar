@@ -126,7 +126,7 @@ export function EnglishAnalyzeForm() {
         <button type="button" onClick={() => inputRef.current?.click()} className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-left text-sm text-white"><ImagePlus className="mb-2 h-5 w-5 text-accent" />{enUS.imageMode}<span className="mt-1 block text-xs text-muted-foreground">Free screenshot analysis: 1/day, up to 4 images</span></button>
       </div>
       <textarea id="chat-text" value={text} onChange={(event) => { setText(event.target.value); setImages([]); setParsedMessages(null); }} rows={10} placeholder="Paste the conversation here..." className="min-h-[240px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none focus:border-primary/70" />
-      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleImageUpload} />
+      <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
       {images.length ? <p className="text-xs text-muted-foreground">{images.length} screenshot{images.length > 1 ? "s" : ""} selected.</p> : null}
       {isScreenshotConversation ? (
         <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-white">
@@ -171,38 +171,92 @@ export function EnglishAnalyzeForm() {
 }
 
 async function uploadScreenshotsForParsing(files: File[]) {
-  try {
-    const images = await Promise.all(files.map((file) => fileToBase64Payload(file)));
-    return await fetch("/api/parse-chat-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locale: "en-US", images }),
-    });
-  } catch (error) {
-    console.warn("Base64 screenshot upload failed, falling back to FormData:", error);
-    const form = new FormData();
-    form.append("locale", "en-US");
-    files.forEach((file) => form.append("images", file));
-    return fetch("/api/parse-chat-image", { method: "POST", body: form });
-  }
+  const uploadFiles = await Promise.all(files.map((file) => compressImageForUpload(file)));
+  const form = new FormData();
+  form.append("locale", "en-US");
+  uploadFiles.forEach((file) => form.append("images", file));
+  return fetch("/api/parse-chat-image", { method: "POST", body: form });
 }
 
-function fileToBase64Payload(file: File): Promise<{ mimeType: string; base64: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not read this screenshot from your device."));
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      const commaIndex = result.indexOf(",");
-      if (!result || commaIndex < 0) {
-        reject(new Error("Could not prepare this screenshot for upload."));
-        return;
-      }
-      resolve({
-        mimeType: file.type || "image/jpeg",
-        base64: result.slice(commaIndex + 1),
-      });
-    };
-    reader.readAsDataURL(file);
+async function compressImageForUpload(file: File) {
+  if (typeof window === "undefined") return file;
+  if (!file.type.startsWith("image/")) return file;
+
+  const image = await loadImageForCompression(file);
+  if (!image) return file;
+
+  const maxSide = 1400;
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    closeLoadedImage(image);
+    return file;
+  }
+
+  context.drawImage(image.source, 0, 0, width, height);
+  closeLoadedImage(image);
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.82);
   });
+
+  if (!blob) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg") || "chat-screenshot.jpg", {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+type LoadedImage = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  objectUrl?: string;
+  close?: () => void;
+};
+
+async function loadImageForCompression(file: File): Promise<LoadedImage | null> {
+  if ("createImageBitmap" in window) {
+    const bitmap = await window.createImageBitmap(file).catch(() => null);
+    if (bitmap) {
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => bitmap.close(),
+      };
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+  image.decoding = "async";
+  image.src = objectUrl;
+
+  const loaded = await new Promise<HTMLImageElement | null>((resolve) => {
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+  });
+
+  if (!loaded) {
+    URL.revokeObjectURL(objectUrl);
+    return null;
+  }
+
+  return {
+    source: loaded,
+    width: loaded.naturalWidth || loaded.width,
+    height: loaded.naturalHeight || loaded.height,
+    objectUrl,
+  };
+}
+
+function closeLoadedImage(image: LoadedImage) {
+  image.close?.();
+  if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
 }
