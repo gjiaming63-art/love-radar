@@ -1,20 +1,18 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { EnglishReportView } from "@/components/radar/en/report-view";
-import type { LoveReport } from "@/types/report";
+import { getCurrentUser } from "@/lib/auth";
+import { getReport, redactReport } from "@/lib/reports";
 
 export default async function EnglishReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const headerStore = await headers();
-  const host = headerStore.get("host");
-  if (!host) notFound();
-  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
-  const response = await fetch(`${protocol}://${host}/api/reports/${id}`, {
-    cache: "no-store",
-    headers: { cookie: headerStore.get("cookie") ?? "" },
-  });
-  if (!response.ok) notFound();
-  const payload = (await response.json()) as { report?: LoveReport & { id: string } };
-  if (!payload.report) notFound();
-  return <EnglishReportView report={payload.report} />;
+  await headers();
+  const report = await getReport(id);
+  if (!report) notFound();
+  const user = await getCurrentUser();
+  const effectiveReport = user?.isTestAccount
+    ? { ...report, isPaid: true, paidAt: report.paidAt ?? new Date().toISOString() }
+    : report;
+  const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
+  return <EnglishReportView report={paywallEnabled ? redactReport(effectiveReport) : effectiveReport} />;
 }

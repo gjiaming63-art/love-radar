@@ -1,7 +1,8 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { ReportView } from "@/components/radar/report-view";
-import type { LoveReport } from "@/types/report";
+import { getCurrentUser } from "@/lib/auth";
+import { getReport, redactReport } from "@/lib/reports";
 
 type ReportPageProps = {
   params: Promise<{ id: string }>;
@@ -16,15 +17,13 @@ export default async function ReportPage({ params }: ReportPageProps) {
 }
 
 async function fetchReport(id: string) {
-  const headerStore = await headers();
-  const host = headerStore.get("host");
-  if (!host) return null;
-  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
-  const response = await fetch(`${protocol}://${host}/api/reports/${id}`, {
-    cache: "no-store",
-    headers: { cookie: headerStore.get("cookie") ?? "" },
-  });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as { report?: LoveReport & { id: string } };
-  return payload.report ?? null;
+  await headers();
+  const report = await getReport(id);
+  if (!report) return null;
+  const user = await getCurrentUser();
+  const effectiveReport = user?.isTestAccount
+    ? { ...report, isPaid: true, paidAt: report.paidAt ?? new Date().toISOString() }
+    : report;
+  const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
+  return paywallEnabled ? redactReport(effectiveReport) : effectiveReport;
 }
