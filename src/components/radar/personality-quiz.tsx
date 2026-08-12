@@ -56,7 +56,7 @@ export function PersonalityQuiz() {
       <div className="signal-grid pointer-events-none absolute inset-0 opacity-45" />
       <div className="relative mx-auto flex min-h-[calc(100svh-2.5rem)] w-full max-w-xl flex-col">
         <header className="mb-8 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/" prefetch={false} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
             返回首页
           </Link>
@@ -232,7 +232,7 @@ function ResultStep({
           </CardContent>
         </Card>
       )}
-      <div className="grid gap-3 sm:grid-cols-2"><Link href="/analyze"><Button className="w-full"><Check className="h-4 w-4" />用聊天记录验证一下</Button></Link><Button type="button" variant="secondary" onClick={onRestart} className="w-full"><RotateCcw className="h-4 w-4" />重新测试</Button></div>
+      <div className="grid gap-3 sm:grid-cols-2"><Link href="/analyze" prefetch={false}><Button className="w-full"><Check className="h-4 w-4" />用聊天记录验证一下</Button></Link><Button type="button" variant="secondary" onClick={onRestart} className="w-full"><RotateCcw className="h-4 w-4" />重新测试</Button></div>
       <p className="text-center text-xs leading-5 text-muted-foreground">本测试仅供娱乐和自我了解，不构成心理诊断或关系结论。</p>
     </section>
   );

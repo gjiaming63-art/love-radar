@@ -44,6 +44,7 @@ export function ReportView({ initialReport }: { initialReport: LoveReport & { id
       <div className="mx-auto w-full max-w-5xl">
         <Link
           href="/analyze"
+          prefetch={false}
           className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />

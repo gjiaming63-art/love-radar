@@ -8,6 +8,7 @@ export default function AnalyzePage() {
       <div className="mx-auto w-full max-w-3xl">
         <Link
           href="/"
+          prefetch={false}
           className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
