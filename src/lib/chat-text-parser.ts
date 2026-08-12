@@ -77,7 +77,7 @@ export function parseWechatTranscript(text: string): ParsedChatTextResult {
   }
 
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
+    const line = stripTimestampPrefix(lines[index]);
     if (isIgnorableLine(line)) continue;
     if (isTimeLine(line) || isDateLine(line)) continue;
 
@@ -151,11 +151,19 @@ function parseColonLine(line: string) {
   return { speaker, text: messageText };
 }
 
+function stripTimestampPrefix(line: string) {
+  return line
+    .replace(/^\[?\d{1,4}[/-]\d{1,2}[/-]\d{1,4},?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?\]?\s*(?:[-–—:]\s*)?/i, "")
+    .replace(/^\[?(?:Today|Yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?\]?\s*(?:[-–—:]\s*)?/i, "")
+    .replace(/^\[?\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?\]?\s*[-–—:]\s*/i, "")
+    .trim();
+}
+
 function parseTimeNameLine(line: string) {
-  const timePrefix = line.match(/^(?:\d{1,2}:\d{2}|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2})\s+(.{1,24})$/);
+  const timePrefix = line.match(/^(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2})\s+(.{1,24})$/i);
   if (timePrefix) return cleanSpeakerName(timePrefix[1]);
 
-  const timeSuffix = line.match(/^(.{1,24})\s+(?:\d{1,2}:\d{2}|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2})$/);
+  const timeSuffix = line.match(/^(.{1,24})\s+(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2})$/i);
   if (timeSuffix) return cleanSpeakerName(timeSuffix[1]);
 
   return "";
@@ -196,11 +204,11 @@ function isIgnorableLine(line: string) {
 }
 
 function isTimeLine(line: string) {
-  return /^(?:\d{1,2}:\d{2}|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2})$/.test(line);
+  return /^(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2})$/i.test(line);
 }
 
 function isDateLine(line: string) {
-  return /^(?:\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}月\d{1,2}日|今天|昨天|前天|星期[一二三四五六日天])(?:\s+(?:\d{1,2}:\d{2}|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2}))?$/.test(
+  return /^(?:\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}月\d{1,2}日|今天|昨天|前天|星期[一二三四五六日天]|Today|Yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:,?\s+(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?|(?:上午|下午|晚上|凌晨|中午)\s*\d{1,2}:\d{2}))?$/i.test(
     line,
   );
 }
@@ -210,7 +218,8 @@ function isDateTimeLike(line: string) {
     /^(?:\d{4}年)?\d{1,2}月\d{1,2}日(?:\s+星期[一二三四五六日天])?(?:\s+(?:上午|下午|晚上|凌晨|中午)?\s*\d{1,2}:\d{2})?$/.test(
       line,
     ) ||
-    /^\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s+(?:上午|下午|晚上|凌晨|中午)?\s*\d{1,2}:\d{2})?$/.test(line)
+    /^\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s+(?:上午|下午|晚上|凌晨|中午)?\s*\d{1,2}:\d{2})?$/.test(line) ||
+    /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}(?:,?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)?$/i.test(line)
   );
 }
 
