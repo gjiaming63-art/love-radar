@@ -19,7 +19,7 @@ export default function Home() {
             Love Radar
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/me" className="text-sm text-muted-foreground transition hover:text-foreground">
+            <Link href="/me" prefetch={false} className="text-sm text-muted-foreground transition hover:text-foreground">
               我的
             </Link>
             <Badge>娱乐分析</Badge>
@@ -44,13 +44,13 @@ export default function Home() {
               让AI帮你发现那些被忽略的信号。
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link href="/analyze">
+              <Link href="/analyze" prefetch={false}>
                 <Button size="lg" className="w-full sm:w-auto">
                   开始分析
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/personality">
+              <Link href="/personality" prefetch={false}>
                 <Button size="lg" variant="secondary" className="w-full sm:w-auto">
                   <BrainCircuit className="h-4 w-4 text-accent" />
                   测一测你的恋爱人格
