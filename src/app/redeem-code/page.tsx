@@ -9,7 +9,7 @@ export default function RedeemCodePage() {
 
       <div className="relative mx-auto flex min-h-[calc(100svh-48px)] w-full max-w-md flex-col justify-center">
         <div className="mb-6">
-          <Link href="/" className="text-sm text-muted-foreground transition hover:text-white">
+          <Link href="/" prefetch={false} className="text-sm text-muted-foreground transition hover:text-white">
             恋爱雷达 Love Radar
           </Link>
           <h1 className="mt-4 text-3xl font-semibold tracking-normal">领取高级版兑换码</h1>
