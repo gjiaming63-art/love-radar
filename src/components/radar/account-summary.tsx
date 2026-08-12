@@ -112,6 +112,7 @@ export function AccountSummary({
             <Link
               key={report.id}
               href={`/report/${report.id}`}
+              prefetch={false}
               className="block rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-primary/50"
             >
               <div className="flex items-center justify-between gap-3">

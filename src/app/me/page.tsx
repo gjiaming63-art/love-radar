@@ -12,10 +12,10 @@ export default async function MePage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,69,132,0.2),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_22%)]" />
       <div className="relative mx-auto w-full max-w-md">
         <div className="mb-6 flex items-center justify-between">
-          <Link href="/" className="text-sm text-muted-foreground transition hover:text-white">
+          <Link href="/" prefetch={false} className="text-sm text-muted-foreground transition hover:text-white">
             恋爱雷达 Love Radar
           </Link>
-          <Link href="/analyze" className="text-sm text-primary transition hover:text-white">
+          <Link href="/analyze" prefetch={false} className="text-sm text-primary transition hover:text-white">
             去分析
           </Link>
         </div>
