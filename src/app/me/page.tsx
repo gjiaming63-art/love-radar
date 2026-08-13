@@ -28,6 +28,8 @@ export default async function MePage() {
             redeemedCodes={overview.redeemedCodes}
             reportCount={overview.reportCount}
             paidReportCount={overview.paidReportCount}
+            newUserGiftCode={overview.newUserGiftCode}
+            newUserGiftClaimed={overview.newUserGiftClaimed}
             reports={overview.reports}
           />
         ) : (

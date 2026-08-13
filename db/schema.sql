@@ -110,6 +110,18 @@ CREATE INDEX IF NOT EXISTS unlock_codes_used_idx ON unlock_codes (used);
 CREATE INDEX IF NOT EXISTS unlock_codes_report_id_idx ON unlock_codes (report_id);
 CREATE INDEX IF NOT EXISTS unlock_codes_user_id_idx ON unlock_codes (user_id);
 
+CREATE TABLE IF NOT EXISTS new_user_gift_codes (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  code_id TEXT NOT NULL REFERENCES unlock_codes(id) ON DELETE RESTRICT,
+  code TEXT NOT NULL,
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS new_user_gift_codes_code_id_unique
+  ON new_user_gift_codes (code_id);
+CREATE INDEX IF NOT EXISTS new_user_gift_codes_claimed_at_idx
+  ON new_user_gift_codes (claimed_at);
+
 CREATE TABLE IF NOT EXISTS code_claims (
   id TEXT PRIMARY KEY,
   order_no TEXT NOT NULL UNIQUE,
@@ -126,12 +138,14 @@ CREATE INDEX IF NOT EXISTS code_claims_claimed_at_idx ON code_claims (claimed_at
 CREATE TABLE IF NOT EXISTS promo_invite_uses (
   id TEXT PRIMARY KEY,
   code TEXT NOT NULL,
-  client_hash TEXT NOT NULL UNIQUE,
+  client_hash TEXT NOT NULL,
   report_id TEXT NOT NULL REFERENCES love_reports(id) ON DELETE CASCADE,
   user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS promo_invite_uses_code_client_hash_unique
+  ON promo_invite_uses (code, client_hash);
 CREATE INDEX IF NOT EXISTS promo_invite_uses_code_idx ON promo_invite_uses (code);
 CREATE INDEX IF NOT EXISTS promo_invite_uses_report_id_idx ON promo_invite_uses (report_id);
 CREATE INDEX IF NOT EXISTS promo_invite_uses_user_id_idx ON promo_invite_uses (user_id);
@@ -182,3 +196,44 @@ CREATE TABLE IF NOT EXISTS product_events (
 CREATE INDEX IF NOT EXISTS product_events_event_name_idx ON product_events (event_name);
 CREATE INDEX IF NOT EXISTS product_events_report_id_idx ON product_events (report_id);
 CREATE INDEX IF NOT EXISTS product_events_created_at_idx ON product_events (created_at);
+
+CREATE TABLE IF NOT EXISTS astrology_reports (
+  id TEXT PRIMARY KEY,
+  profile_names JSONB NOT NULL,
+  charts JSONB NOT NULL,
+  aspects JSONB NOT NULL,
+  scores JSONB NOT NULL,
+  tags JSONB NOT NULL,
+  free_content JSONB NOT NULL,
+  premium_content JSONB NOT NULL,
+  locale TEXT NOT NULL DEFAULT 'zh-CN',
+  engine_version TEXT NOT NULL,
+  calculation_source TEXT NOT NULL,
+  delete_token_hash TEXT NOT NULL,
+  is_paid BOOLEAN NOT NULL DEFAULT FALSE,
+  paid_at TIMESTAMPTZ,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS astrology_reports_user_id_idx ON astrology_reports (user_id);
+CREATE INDEX IF NOT EXISTS astrology_reports_expires_at_idx ON astrology_reports (expires_at);
+
+ALTER TABLE unlock_codes
+  ADD COLUMN IF NOT EXISTS astrology_report_id TEXT REFERENCES astrology_reports(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS chat_astrology_layers (
+  id TEXT PRIMARY KEY,
+  report_id TEXT NOT NULL UNIQUE REFERENCES love_reports(id) ON DELETE CASCADE,
+  alignment_score INTEGER NOT NULL,
+  alignment_level TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  dimensions JSONB NOT NULL,
+  astrology_snapshot JSONB NOT NULL,
+  disclaimer TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS chat_astrology_layers_report_id_idx
+  ON chat_astrology_layers (report_id);

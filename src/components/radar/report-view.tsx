@@ -9,11 +9,13 @@ import {
   LockKeyhole,
   MessageCircleWarning,
   MessageSquareQuote,
+  Orbit,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import { AstrologyRadarChart } from "@/components/radar/astrology-radar-chart";
 import { RadarChart } from "@/components/radar/radar-chart";
 import { ReportActions } from "@/components/radar/report-actions";
 import { SaveReportButton } from "@/components/radar/save-report-button";
@@ -22,12 +24,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getChatSpotlights, getRelationshipMeters, getReportInsight } from "@/lib/report-insights";
 import type { ChatSpotlight, RelationshipMeter } from "@/lib/report-insights";
+import type { ChatAstrologyLayer } from "@/types/chat-astrology";
 import type { LoveReport } from "@/types/report";
 import { scoreLabels } from "@/types/report";
 
-export function ReportView({ initialReport }: { initialReport: LoveReport & { id: string } }) {
+export function ReportView({
+  initialReport,
+  initialAstrologyLayer = null,
+}: {
+  initialReport: LoveReport & { id: string };
+  initialAstrologyLayer?: ChatAstrologyLayer | null;
+}) {
   const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
   const [report, setReport] = useState<LoveReport & { id: string }>(initialReport);
+  const [astrologyLayer] = useState<ChatAstrologyLayer | null>(initialAstrologyLayer);
   const unlocked = !paywallEnabled || Boolean(report.isPaid);
   const locked = !unlocked;
   const insight = getReportInsight(report);
@@ -104,6 +114,7 @@ export function ReportView({ initialReport }: { initialReport: LoveReport & { id
           </section>
 
           <section className="space-y-5">
+            <ChatAstrologyLayerPanel report={report} layer={astrologyLayer} unlocked={unlocked} />
             {unlocked ? (
               <>
                 <ChatSpotlights spotlights={spotlights} />
@@ -151,6 +162,301 @@ function PremiumUpgradeCard({
       </CardContent>
     </Card>
   );
+}
+
+function ChatAstrologyLayerPanel({
+  report,
+  layer,
+  unlocked,
+}: {
+  report: LoveReport & { id: string };
+  layer: ChatAstrologyLayer | null;
+  unlocked: boolean;
+}) {
+  if (!layer) {
+    return (
+      <Card className="border-primary/30 bg-primary/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Orbit className="h-5 w-5 text-primary" />
+            加入星盘辅助解读
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm leading-7 text-muted-foreground">
+            聊天记录是现实证据，星盘只用于辅助解释关系倾向。加入出生信息后，Love Radar 会交叉验证你们真实聊天里出现的互动模式。
+          </p>
+          <div className="rounded-md border border-border bg-background/45 p-3 text-xs leading-5 text-muted-foreground">
+            现实证据优先 → 星盘倾向辅助 → AI 综合解释
+          </div>
+          <Link href={`/report/${report.id}/astrology`} prefetch={false}>
+            <Button type="button" className="w-full">
+              <Orbit className="h-4 w-4" />
+              加入星盘辅助解读
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const radarItems = layer.dimensions.map((dimension) => ({
+    key: dimension.key,
+    label: dimensionShortLabel(dimension.key),
+    score: astrologyDimensionScore(dimension, layer),
+    risk: dimension.key === "Relationship Risk",
+  }));
+  const astrologyTakeaway = buildAstrologyTakeaway(layer);
+
+  return (
+    <Card className="border-primary/30 bg-primary/10">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Orbit className="h-5 w-5 text-primary" />
+          星盘辅助解读
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-lg border border-primary/30 bg-background/40 p-4">
+          <p className="text-xs text-muted-foreground">星盘与现实吻合度</p>
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <span className="font-mono text-5xl font-semibold leading-none text-primary">{layer.alignmentScore}</span>
+            <Badge className="border-primary/25 bg-primary/10 text-primary">{expressionLabel(layer.alignmentLevel)}</Badge>
+          </div>
+          <p className="mt-3 text-sm leading-7 text-muted-foreground">{layer.summary}</p>
+        </div>
+
+        <div className="rounded-lg border border-accent/25 bg-accent/10 p-4">
+          <p className="text-xs font-medium text-accent">星盘给你的提示</p>
+          <h3 className="mt-2 text-lg font-semibold leading-7 text-foreground">{astrologyTakeaway.title}</h3>
+          <p className="mt-2 text-sm leading-7 text-muted-foreground">{astrologyTakeaway.description}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-md border border-border bg-background/45 p-3">
+              <p className="text-xs text-muted-foreground">最强信号</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{astrologyTakeaway.strongest.label}</p>
+            </div>
+            <div className="rounded-md border border-border bg-background/45 p-3">
+              <p className="text-xs text-muted-foreground">最大卡点</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{astrologyTakeaway.blocker.label}</p>
+            </div>
+            <div className="rounded-md border border-border bg-background/45 p-3">
+              <p className="text-xs text-muted-foreground">下一步提醒</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{astrologyTakeaway.nextStep}</p>
+            </div>
+          </div>
+        </div>
+
+        <AstrologyRadarChart items={radarItems} />
+
+        <div className="space-y-3">
+          {(unlocked ? layer.dimensions : layer.dimensions.slice(0, 2)).map((dimension) => (
+            <AstrologyDimension key={dimension.key} dimension={dimension} layer={layer} unlocked={unlocked} />
+          ))}
+        </div>
+
+        {!unlocked ? (
+          <div className="rounded-md border border-primary/25 bg-background/45 p-3 text-xs leading-5 text-muted-foreground">
+            免费版显示吻合度和部分维度摘要。解锁高级版后，可查看六维完整的“现实聊天证据 / 星盘关系倾向 / AI 综合结论”。
+          </div>
+        ) : null}
+        <p className="text-xs leading-5 text-muted-foreground">{layer.disclaimer}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AstrologyDimension({
+  dimension,
+  layer,
+  unlocked,
+}: {
+  dimension: ChatAstrologyLayer["dimensions"][number];
+  layer: ChatAstrologyLayer;
+  unlocked: boolean;
+}) {
+  const score = astrologyDimensionScore(dimension, layer);
+  const scoreTone = dimension.key === "Relationship Risk" ? "text-primary" : "text-accent";
+  const reading = dimensionReading(dimension.key, score);
+
+  return (
+    <div className="rounded-md border border-border bg-background/55 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-medium">{dimensionLabel(dimension.key)}</p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-2">
+            <span className={`font-mono text-2xl font-semibold leading-none ${scoreTone}`}>{score}</span>
+            <span className="text-xs text-muted-foreground">
+              {dimension.key === "Relationship Risk" ? "风险分" : "参考分"}
+            </span>
+          </div>
+        </div>
+        <Badge className="border-accent/25 bg-accent/10 text-accent">{expressionLabel(dimension.expressionLevel)}</Badge>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-muted">
+        <div
+          className={dimension.key === "Relationship Risk" ? "h-2 rounded-full bg-primary" : "h-2 rounded-full bg-accent"}
+          style={{ width: `${score}%` }}
+        />
+      </div>
+      <div className="mt-3 rounded-md border border-border bg-background/45 p-3">
+        <p className="text-xs font-semibold text-accent">这一项怎么看</p>
+        <p className="mt-1 text-sm leading-6 text-foreground">{reading}</p>
+      </div>
+      <p className="mt-3 text-xs font-semibold text-primary">现实聊天证据</p>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">{dimension.realityEvidence}</p>
+      {unlocked ? (
+        <>
+          <p className="mt-3 text-xs font-semibold text-accent">星盘关系倾向</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{dimension.astrologyPattern}</p>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function astrologyDimensionScore(dimension: ChatAstrologyLayer["dimensions"][number], layer: ChatAstrologyLayer) {
+  const scores = layer.astrologySnapshot?.scores;
+  const mappedScore =
+    dimension.key === "Attraction"
+      ? scores?.overall
+      : dimension.key === "Emotional Bond"
+        ? scores?.emotional
+        : dimension.key === "Communication"
+          ? scores?.communication
+          : dimension.key === "Chemistry"
+            ? Math.round(((scores?.chemistry ?? 0) + (scores?.intimacy ?? 0)) / 2)
+            : dimension.key === "Stability"
+              ? scores?.stability
+              : scores?.conflictRisk;
+
+  if (typeof mappedScore === "number" && Number.isFinite(mappedScore) && mappedScore > 0) {
+    return clampPercent(mappedScore);
+  }
+
+  const expressionBase: Record<string, number> = {
+    "Strongly Expressed": 82,
+    "Partially Expressed": 64,
+    "Not Currently Expressed": 42,
+  };
+  const base = expressionBase[dimension.expressionLevel] ?? 58;
+  return clampPercent(Math.round(base * 0.65 + layer.alignmentScore * 0.35));
+}
+
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function buildAstrologyTakeaway(layer: ChatAstrologyLayer) {
+  const scored = layer.dimensions.map((dimension) => ({
+    key: dimension.key,
+    label: dimensionLabel(dimension.key),
+    score: astrologyDimensionScore(dimension, layer),
+  }));
+  const positive = scored.filter((item) => item.key !== "Relationship Risk").sort((a, b) => b.score - a.score);
+  const risk = scored.find((item) => item.key === "Relationship Risk");
+  const stability = scored.find((item) => item.key === "Stability");
+  const strongest = positive[0] ?? scored[0];
+  const blocker =
+    risk && risk.score >= 62
+      ? risk
+      : stability && stability.score < 58
+        ? stability
+        : positive.slice().sort((a, b) => a.score - b.score)[0] ?? strongest;
+
+  const title =
+    layer.alignmentScore >= 75
+      ? "星盘和聊天都在指向同一个关系模式"
+      : layer.alignmentScore >= 58
+        ? "有吸引，但现实推进还不够稳定"
+        : "星盘有倾向，但聊天里还没充分表现出来";
+
+  const description =
+    layer.alignmentScore >= 75
+      ? `最明显的是「${strongest.label}」，聊天里的互动已经能看到对应信号；但仍要看现实行动是否持续。`
+      : layer.alignmentScore >= 58
+        ? `最明显的是「${strongest.label}」，卡点在「${blocker.label}」。这说明关系不是没信号，而是还需要现实行动来验证。`
+        : `星盘显示有一些潜在关系倾向，但聊天证据还不够强。现在更适合观察对方是否愿意给出明确回应。`;
+
+  const nextStep =
+    blocker?.key === "Relationship Risk"
+      ? "先降内耗，别用试探换答案"
+      : blocker?.key === "Stability"
+        ? "看对方有没有稳定行动"
+        : "用一次轻沟通确认节奏";
+
+  return { title, description, strongest, blocker, nextStep };
+}
+
+function dimensionReading(key: string, score: number) {
+  const high = score >= 68;
+  const mid = score >= 52;
+  const readings: Record<string, [string, string, string]> = {
+    Attraction: [
+      "好感和吸引比较明显，但仍要看对方是否愿意把感觉变成行动。",
+      "有吸引苗头，但不适合仅凭暧昧感判断关系会推进。",
+      "吸引信号偏弱，先别把普通友好自动理解成强烈好感。",
+    ],
+    "Emotional Bond": [
+      "情绪上容易互相牵动，也更容易因为一句话想很多。",
+      "有一定情绪共振，但安全感还需要稳定互动来建立。",
+      "情绪连接暂时不深，不建议过早投入太多期待。",
+    ],
+    Communication: [
+      "你们有机会聊到同频，但关键问题仍需要更直接地说清楚。",
+      "聊天能接上，但容易绕开关系定义和具体安排。",
+      "沟通频率和理解度偏弱，先别靠猜测补全答案。",
+    ],
+    Chemistry: [
+      "心动和拉扯感都比较强，容易推进，也容易冲动。",
+      "有一些化学反应，但热度未必等于稳定投入。",
+      "火花感暂时不强，关系更需要现实互动慢慢加温。",
+    ],
+    Stability: [
+      "长期稳定信号不错，可以观察关系是否能落到持续行动上。",
+      "稳定性还在中间状态，需要看对方后续是否持续回应。",
+      "稳定推进不足，不建议单方面加码投入。",
+    ],
+    "Relationship Risk": [
+      "拉扯和内耗信号偏强，越想确认越容易被情绪带走。",
+      "有一些不确定和反复感，适合慢一点验证。",
+      "风险感不算高，但仍要以现实沟通和边界为准。",
+    ],
+  };
+  const options = readings[key] ?? readings.Attraction;
+  return high ? options[0] : mid ? options[1] : options[2];
+}
+
+function dimensionLabel(key: string) {
+  const labels: Record<string, string> = {
+    Attraction: "金星吸引力",
+    "Emotional Bond": "月亮情绪共振",
+    Communication: "水星沟通频率",
+    Chemistry: "火星化学反应",
+    Stability: "土星长期稳定",
+    "Relationship Risk": "冥王拉扯指数",
+  };
+  return labels[key] ?? key;
+}
+
+function dimensionShortLabel(key: string) {
+  const labels: Record<string, string> = {
+    Attraction: "金星吸引",
+    "Emotional Bond": "月亮共振",
+    Communication: "水星沟通",
+    Chemistry: "火星反应",
+    Stability: "土星稳定",
+    "Relationship Risk": "冥王拉扯",
+  };
+  return labels[key] ?? key;
+}
+
+function expressionLabel(level: string) {
+  const labels: Record<string, string> = {
+    "Strongly Expressed": "明显表现",
+    "Partially Expressed": "部分表现",
+    "Not Currently Expressed": "暂未表现",
+  };
+  return labels[level] ?? level;
 }
 
 function AdvancedLockedPreview({
@@ -238,6 +544,7 @@ function UnlockControls({
       if (!response.ok || !payload.success || !payload.report) throw new Error(payload.error || "兑换失败");
       setMessage("解锁成功：完整报告已开启。");
       onUnlocked(payload.report);
+      window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "兑换失败，请稍后重试。");
     } finally {

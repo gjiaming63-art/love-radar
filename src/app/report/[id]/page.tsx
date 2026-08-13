@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { ReportView } from "@/components/radar/report-view";
 import { getCurrentUser } from "@/lib/auth";
+import { getChatAstrologyLayer, redactChatAstrologyLayer } from "@/lib/chat-astrology/layers";
 import { getReport, redactReport } from "@/lib/reports";
 
 type ReportPageProps = {
@@ -10,13 +11,13 @@ type ReportPageProps = {
 
 export default async function ReportPage({ params }: ReportPageProps) {
   const { id } = await params;
-  const report = await fetchReport(id);
-  if (!report) notFound();
+  const data = await fetchReportData(id);
+  if (!data) notFound();
 
-  return <ReportView initialReport={report} />;
+  return <ReportView initialReport={data.report} initialAstrologyLayer={data.astrologyLayer} />;
 }
 
-async function fetchReport(id: string) {
+async function fetchReportData(id: string) {
   await headers();
   const report = await getReport(id);
   if (!report) return null;
@@ -25,5 +26,10 @@ async function fetchReport(id: string) {
     ? { ...report, isPaid: true, paidAt: report.paidAt ?? new Date().toISOString() }
     : report;
   const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
-  return paywallEnabled ? redactReport(effectiveReport) : effectiveReport;
+  const unlocked = Boolean(user?.isTestAccount || effectiveReport.isPaid || !paywallEnabled);
+  const astrologyLayer = await getChatAstrologyLayer(id);
+  return {
+    report: paywallEnabled ? redactReport(effectiveReport) : effectiveReport,
+    astrologyLayer: astrologyLayer ? redactChatAstrologyLayer(astrologyLayer, unlocked) : null,
+  };
 }

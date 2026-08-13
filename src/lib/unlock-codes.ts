@@ -17,13 +17,24 @@ export type GeneratedUnlockCode = {
   expiresAt: string | null;
 };
 
+export type NewUserGiftCodeResult = {
+  success: boolean;
+  code?: string;
+  alreadyClaimed?: boolean;
+  error?: string;
+};
+
 function normalizeCode(code: string) {
   return code.trim().toUpperCase();
 }
 
-function getPromoInviteCode() {
-  const code = process.env.PROMO_INVITE_CODE?.trim();
-  return code ? normalizeCode(code) : "";
+function getPromoInviteCodes() {
+  const codes = [process.env.PROMO_INVITE_CODE, process.env.PROMO_INVITE_CODES]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(/[,，\n\r]+/))
+    .map(normalizeCode)
+    .filter(Boolean);
+  return Array.from(new Set(codes));
 }
 
 function generateCode() {
@@ -110,6 +121,85 @@ export async function createUnlockCodes({
   return generated;
 }
 
+export async function getNewUserGiftCode(userId: string) {
+  if (!userId.trim()) return null;
+  await ensureCommerceSchema();
+  await ensureNewUserGiftSchema();
+  const db = requireDb();
+  const result = await db.query<{ code: string }>(
+    "SELECT code FROM new_user_gift_codes WHERE user_id = $1",
+    [userId],
+  );
+  return result.rows[0]?.code ?? null;
+}
+
+export async function claimNewUserGiftCode(userId: string): Promise<NewUserGiftCodeResult> {
+  if (!userId.trim()) return { success: false, error: "请先登录后再领取新人福利。" };
+
+  await ensureCommerceSchema();
+  await ensureNewUserGiftSchema();
+  const db = requireDb();
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const existing = await client.query<{ code: string }>(
+      "SELECT code FROM new_user_gift_codes WHERE user_id = $1 FOR UPDATE",
+      [userId],
+    );
+    if (existing.rows[0]) {
+      await client.query("COMMIT");
+      return { success: true, code: existing.rows[0].code, alreadyClaimed: true };
+    }
+
+    let code = "";
+    let codeId = "";
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidateCode = generateCode();
+      const candidateId = randomUUID();
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO unlock_codes
+          (id, code, type, expires_at, user_id, payment_provider, order_source)
+         VALUES ($1, $2, 'new_user_trial', NULL, $3, 'system', 'new_user_gift')
+         ON CONFLICT (code) DO NOTHING
+         RETURNING id`,
+        [candidateId, candidateCode, userId],
+      );
+      if (inserted.rows[0]) {
+        code = candidateCode;
+        codeId = candidateId;
+        break;
+      }
+    }
+
+    if (!code || !codeId) {
+      await client.query("ROLLBACK");
+      return { success: false, error: "新人福利码生成失败，请稍后重试。" };
+    }
+
+    await client.query(
+      `INSERT INTO new_user_gift_codes (user_id, code_id, code)
+       VALUES ($1, $2, $3)`,
+      [userId, codeId, code],
+    );
+
+    await client.query("COMMIT");
+    return { success: true, code, alreadyClaimed: false };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    if (isUniqueViolation(error)) {
+      const existing = await db
+        .query<{ code: string }>("SELECT code FROM new_user_gift_codes WHERE user_id = $1", [userId])
+        .catch(() => ({ rows: [] }));
+      if (existing.rows[0]) return { success: true, code: existing.rows[0].code, alreadyClaimed: true };
+    }
+    console.error("claim new user gift code failed:", error);
+    return { success: false, error: "新人福利领取失败，请稍后重试。" };
+  } finally {
+    client.release();
+  }
+}
+
 export async function exportUnusedCodesCsv() {
   await ensureCommerceSchema();
   const db = requireDb();
@@ -133,8 +223,8 @@ export async function exportUnusedCodesCsv() {
 
 export async function redeemUnlockCode(code: string, reportId: string, clientKey?: string, userId?: string) {
   const normalizedCode = normalizeCode(code);
-  const promoCode = getPromoInviteCode();
-  if (promoCode && normalizedCode === promoCode) {
+  const promoCodes = getPromoInviteCodes();
+  if (promoCodes.includes(normalizedCode)) {
     return redeemPromoInviteCode(normalizedCode, reportId, clientKey, userId);
   }
 
@@ -269,6 +359,7 @@ async function redeemPromoInviteCode(code: string, reportId: string, clientKey?:
 
   await ensureCommerceSchema();
   const db = requireDb();
+  await ensurePromoInviteSchema();
   const clientHash = hashClientKey(clientKey);
   const client = await db.connect();
   try {
@@ -291,7 +382,7 @@ async function redeemPromoInviteCode(code: string, reportId: string, clientKey?:
       `INSERT INTO promo_invite_uses
         (id, code, client_hash, report_id, user_id)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (client_hash) DO NOTHING
+       ON CONFLICT (code, client_hash) DO NOTHING
        RETURNING id`,
       [randomUUID(), code, clientHash, reportId, userId || null],
     );
@@ -315,6 +406,32 @@ async function redeemPromoInviteCode(code: string, reportId: string, clientKey?:
   } finally {
     client.release();
   }
+}
+
+async function ensurePromoInviteSchema() {
+  const db = requireDb();
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS promo_invite_uses_code_client_hash_unique
+      ON promo_invite_uses (code, client_hash);
+  `);
+  await db.query(`ALTER TABLE promo_invite_uses DROP CONSTRAINT IF EXISTS promo_invite_uses_client_hash_key;`);
+}
+
+async function ensureNewUserGiftSchema() {
+  const db = requireDb();
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS new_user_gift_codes (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      code_id TEXT NOT NULL REFERENCES unlock_codes(id) ON DELETE RESTRICT,
+      code TEXT NOT NULL,
+      claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS new_user_gift_codes_code_id_unique
+      ON new_user_gift_codes (code_id);
+    CREATE INDEX IF NOT EXISTS new_user_gift_codes_claimed_at_idx
+      ON new_user_gift_codes (claimed_at);
+  `);
 }
 
 function isUniqueViolation(error: unknown) {

@@ -130,6 +130,18 @@ export async function ensureCommerceSchema() {
         CREATE INDEX IF NOT EXISTS unlock_codes_report_id_idx ON unlock_codes (report_id);
         CREATE INDEX IF NOT EXISTS unlock_codes_user_id_idx ON unlock_codes (user_id);
 
+        CREATE TABLE IF NOT EXISTS new_user_gift_codes (
+          user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          code_id TEXT NOT NULL REFERENCES unlock_codes(id) ON DELETE RESTRICT,
+          code TEXT NOT NULL,
+          claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS new_user_gift_codes_code_id_unique
+          ON new_user_gift_codes (code_id);
+        CREATE INDEX IF NOT EXISTS new_user_gift_codes_claimed_at_idx
+          ON new_user_gift_codes (claimed_at);
+
         CREATE TABLE IF NOT EXISTS code_claims (
           id TEXT PRIMARY KEY,
           order_no TEXT NOT NULL UNIQUE,
@@ -146,16 +158,19 @@ export async function ensureCommerceSchema() {
         CREATE TABLE IF NOT EXISTS promo_invite_uses (
           id TEXT PRIMARY KEY,
           code TEXT NOT NULL,
-          client_hash TEXT NOT NULL UNIQUE,
+          client_hash TEXT NOT NULL,
           report_id TEXT NOT NULL REFERENCES love_reports(id) ON DELETE CASCADE,
           user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
           used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
+        CREATE UNIQUE INDEX IF NOT EXISTS promo_invite_uses_code_client_hash_unique
+          ON promo_invite_uses (code, client_hash);
         CREATE INDEX IF NOT EXISTS promo_invite_uses_code_idx ON promo_invite_uses (code);
         CREATE INDEX IF NOT EXISTS promo_invite_uses_report_id_idx ON promo_invite_uses (report_id);
         CREATE INDEX IF NOT EXISTS promo_invite_uses_user_id_idx ON promo_invite_uses (user_id);
         CREATE INDEX IF NOT EXISTS promo_invite_uses_used_at_idx ON promo_invite_uses (used_at);
+        ALTER TABLE promo_invite_uses DROP CONSTRAINT IF EXISTS promo_invite_uses_client_hash_key;
 
         CREATE TABLE IF NOT EXISTS screenshot_usage (
           usage_date DATE NOT NULL,

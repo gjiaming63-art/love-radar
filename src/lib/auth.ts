@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { ensureCommerceSchema, getPool } from "@/lib/reports";
+import { getNewUserGiftCode } from "@/lib/unlock-codes";
 
 export type AuthUser = {
   id: string;
@@ -453,10 +454,18 @@ export async function updateUserProfile(userId: string, displayNameInput: string
 export async function getMeOverview(userId: string) {
   const db = getPool();
   if (!db) {
-    return { reports: [], screenshotRemaining: 0, redeemedCodes: 0, reportCount: 0, paidReportCount: 0 };
+    return {
+      reports: [],
+      screenshotRemaining: 0,
+      redeemedCodes: 0,
+      reportCount: 0,
+      paidReportCount: 0,
+      newUserGiftCode: null,
+      newUserGiftClaimed: false,
+    };
   }
   await ensureAuthSchema();
-  const [reports, quota, codes] = await Promise.all([
+  const [reports, astrologyReports, quota, codes, newUserGiftCode] = await Promise.all([
     db.query<{
       id: string;
       summary: string;
@@ -482,6 +491,31 @@ export async function getMeOverview(userId: string) {
       `,
       [userId],
     ),
+    db.query<{
+      id: string;
+      summary: string;
+      risk_level: string;
+      overall_score: number;
+      is_paid: boolean;
+      created_at: Date;
+      locale: "zh-CN" | "en-US";
+    }>(
+      `
+        SELECT
+          id,
+          free_content->>'oneLineSummary' AS summary,
+          '恋爱占星师' AS risk_level,
+          COALESCE((scores->>'overall')::int, 0) AS overall_score,
+          is_paid,
+          locale,
+          created_at
+        FROM astrology_reports
+        WHERE user_id = $1 AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 30
+      `,
+      [userId],
+    ).catch(() => ({ rows: [] })),
     db.query<{ remaining: number }>(
       `
         SELECT COALESCE(SUM(remaining_uses), 0)::int AS remaining
@@ -493,10 +527,10 @@ export async function getMeOverview(userId: string) {
       [userId],
     ),
     db.query<{ count: number }>("SELECT COUNT(*)::int AS count FROM unlock_codes WHERE user_id = $1", [userId]),
+    getNewUserGiftCode(userId).catch(() => null),
   ]);
 
-  return {
-    reports: reports.rows.map((item) => ({
+  const chatReports = reports.rows.map((item) => ({
       id: item.id,
       summary: item.summary,
       riskLevel: item.risk_level,
@@ -504,11 +538,30 @@ export async function getMeOverview(userId: string) {
       isPaid: Boolean(item.is_paid),
       locale: item.locale === "en-US" ? "en-US" : "zh-CN",
       createdAt: item.created_at.toISOString(),
-    })),
+      kind: "chat" as const,
+    }));
+  const astroReports = astrologyReports.rows.map((item) => ({
+    id: item.id,
+    summary: item.summary,
+    riskLevel: item.risk_level,
+    overallScore: Number(item.overall_score),
+    isPaid: Boolean(item.is_paid),
+    locale: item.locale === "en-US" ? "en-US" : "zh-CN",
+    createdAt: item.created_at.toISOString(),
+    kind: "astrology" as const,
+  }));
+  const allReports = [...chatReports, ...astroReports]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 30);
+
+  return {
+    reports: allReports,
     screenshotRemaining: Number(quota.rows[0]?.remaining ?? 0),
     redeemedCodes: Number(codes.rows[0]?.count ?? 0),
-    reportCount: reports.rows.length,
-    paidReportCount: reports.rows.filter((item) => Boolean(item.is_paid)).length,
+    reportCount: allReports.length,
+    paidReportCount: allReports.filter((item) => Boolean(item.isPaid)).length,
+    newUserGiftCode,
+    newUserGiftClaimed: Boolean(newUserGiftCode),
   };
 }
 

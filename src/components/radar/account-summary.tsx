@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { Check, Copy, Gift, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type AccountReport = {
@@ -12,6 +12,7 @@ type AccountReport = {
   overallScore: number;
   isPaid: boolean;
   createdAt: string;
+  kind?: "chat" | "astrology";
 };
 
 export function AccountSummary({
@@ -21,6 +22,8 @@ export function AccountSummary({
   redeemedCodes,
   reportCount,
   paidReportCount,
+  newUserGiftCode,
+  newUserGiftClaimed,
   reports,
 }: {
   email: string | null;
@@ -29,12 +32,19 @@ export function AccountSummary({
   redeemedCodes: number;
   reportCount: number;
   paidReportCount: number;
+  newUserGiftCode: string | null;
+  newUserGiftClaimed: boolean;
   reports: AccountReport[];
 }) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [name, setName] = useState(displayName ?? "");
   const [savingName, setSavingName] = useState(false);
   const [message, setMessage] = useState("");
+  const [giftCode, setGiftCode] = useState(newUserGiftCode);
+  const [giftClaimed, setGiftClaimed] = useState(newUserGiftClaimed);
+  const [claimingGift, setClaimingGift] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
+  const [copiedGift, setCopiedGift] = useState(false);
 
   async function logout() {
     setLoggingOut(true);
@@ -58,6 +68,42 @@ export function AccountSummary({
       setMessage(error instanceof Error ? error.message : "保存失败，请稍后再试。");
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function claimGiftCode() {
+    setClaimingGift(true);
+    setGiftMessage("");
+    try {
+      const response = await fetch("/api/me/new-user-code", { method: "POST" });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        code?: string;
+        alreadyClaimed?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !payload.success || !payload.code) {
+        throw new Error(payload.error || "领取失败，请稍后再试。");
+      }
+      setGiftCode(payload.code);
+      setGiftClaimed(true);
+      setGiftMessage(payload.alreadyClaimed ? "你已经领取过新人福利码。" : "领取成功，复制后可在高级内容处兑换。");
+    } catch (error) {
+      setGiftMessage(error instanceof Error ? error.message : "领取失败，请稍后再试。");
+    } finally {
+      setClaimingGift(false);
+    }
+  }
+
+  async function copyGiftCode() {
+    if (!giftCode) return;
+    try {
+      await navigator.clipboard.writeText(giftCode);
+      setCopiedGift(true);
+      setGiftMessage("已复制兑换码。");
+      window.setTimeout(() => setCopiedGift(false), 1600);
+    } catch {
+      setGiftMessage("复制失败，可以手动长按兑换码复制。");
     }
   }
 
@@ -102,6 +148,55 @@ export function AccountSummary({
         </div>
       </section>
 
+      <section className="overflow-hidden rounded-[28px] border border-primary/35 bg-[radial-gradient(circle_at_20%_0%,rgba(255,70,124,0.22),transparent_34%),rgba(255,255,255,0.04)] p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-primary/15 text-primary">
+            <Gift className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">首次登录福利</h2>
+              {giftClaimed ? (
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-200">
+                  已领取
+                </span>
+              ) : (
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] text-primary">
+                  新人专属
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              每个账号可领取 1 个新人兑换码，可在任意高级功能里免费体验一次。用于聊天报告时，会同时开启高级截图额度。
+            </p>
+          </div>
+        </div>
+
+        {giftCode ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+            <p className="text-xs text-muted-foreground">你的新人福利码</p>
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <p className="flex-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-3 font-mono text-lg font-semibold tracking-wide text-primary">
+                {giftCode}
+              </p>
+              <Button type="button" variant="secondary" onClick={copyGiftCode}>
+                {copiedGift ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copiedGift ? "已复制" : "复制"}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              这枚码只属于当前账号，使用后不可重复使用。
+            </p>
+          </div>
+        ) : (
+          <Button type="button" className="mt-4 w-full" onClick={claimGiftCode} disabled={claimingGift}>
+            {claimingGift ? "领取中" : "领取新人福利码"}
+          </Button>
+        )}
+
+        {giftMessage ? <p className="mt-3 text-xs leading-5 text-muted-foreground">{giftMessage}</p> : null}
+      </section>
+
       <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-primary" />
@@ -111,7 +206,7 @@ export function AccountSummary({
           {reports.length ? reports.map((report) => (
             <Link
               key={report.id}
-              href={`/report/${report.id}`}
+              href={report.kind === "astrology" ? `/astrology/report/${report.id}` : `/report/${report.id}`}
               prefetch={false}
               className="block rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-primary/50"
             >
