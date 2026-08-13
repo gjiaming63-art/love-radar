@@ -355,7 +355,7 @@ function AstrologyPaywall({
   return (
     <div className="space-y-3 rounded-lg border border-primary/35 bg-primary/10 p-4">
       <p className="text-sm leading-7 text-muted-foreground">
-        免费版已经展示核心合盘结果。高级版会补全深度画像、未来趋势、完整相位证据链和可复制沟通话术。
+        免费版已经展示核心合盘结果。高级体验包会补全深度画像、未来趋势、完整相位证据链和可复制沟通话术，并可用于其他深度版各一次。
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         <Button
@@ -369,7 +369,7 @@ function AstrologyPaywall({
             window.location.assign(buyUrl);
           }}
         >
-          ￥6.9 解锁高级版
+          ￥6.9 购买高级体验包
         </Button>
         <Button type="button" variant="secondary" onClick={() => setShowInput((value) => !value)}>
           我有兑换码 / 福利码

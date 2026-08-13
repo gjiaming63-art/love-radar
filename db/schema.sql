@@ -122,6 +122,29 @@ CREATE UNIQUE INDEX IF NOT EXISTS new_user_gift_codes_code_id_unique
 CREATE INDEX IF NOT EXISTS new_user_gift_codes_claimed_at_idx
   ON new_user_gift_codes (claimed_at);
 
+CREATE TABLE IF NOT EXISTS entitlement_bundles (
+  id TEXT PRIMARY KEY,
+  code_id TEXT NOT NULL UNIQUE REFERENCES unlock_codes(id) ON DELETE RESTRICT,
+  code TEXT NOT NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  client_hash TEXT,
+  chat_report_unlocks INTEGER NOT NULL DEFAULT 1,
+  personality_unlocks INTEGER NOT NULL DEFAULT 1,
+  astrology_unlocks INTEGER NOT NULL DEFAULT 1,
+  chat_astrology_unlocks INTEGER NOT NULL DEFAULT 1,
+  screenshot_uses INTEGER NOT NULL DEFAULT 10,
+  max_images_per_use INTEGER NOT NULL DEFAULT 8,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS entitlement_bundles_user_id_idx
+  ON entitlement_bundles (user_id);
+CREATE INDEX IF NOT EXISTS entitlement_bundles_client_hash_idx
+  ON entitlement_bundles (client_hash);
+CREATE INDEX IF NOT EXISTS entitlement_bundles_code_idx
+  ON entitlement_bundles (code);
+
 CREATE TABLE IF NOT EXISTS code_claims (
   id TEXT PRIMARY KEY,
   order_no TEXT NOT NULL UNIQUE,

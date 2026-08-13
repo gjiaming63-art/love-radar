@@ -567,7 +567,7 @@ function UnlockControls({
             window.location.assign(buyUrl);
           }}
         >
-          ￥6.9 解锁高级版
+          ￥6.9 购买高级体验包
         </Button>
         <Button type="button" variant="secondary" onClick={() => setShowInput((value) => !value)}>
           我有兑换码 / 福利码

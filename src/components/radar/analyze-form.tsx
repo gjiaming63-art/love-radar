@@ -453,7 +453,7 @@ export function AnalyzeForm() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">今日免费截图分析次数已用完</p>
                     <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                      截图识别需要消耗高级视觉 AI 额度。你可以继续免费使用文字分析，或购买兑换码解锁 10 次高级截图额度，每次最多 8 张，并同时开启高级报告内容。
+                      截图识别需要消耗高级视觉 AI 额度。你可以继续免费使用文字分析，或购买高级体验包解锁 10 次高级截图额度，每次最多 8 张，并获得各模块深度版各一次。
                     </p>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       {mianbaoduoBuyUrl ? (
@@ -462,7 +462,7 @@ export function AnalyzeForm() {
                           size="sm"
                           onClick={() => window.open(mianbaoduoBuyUrl, "_blank", "noopener,noreferrer")}
                         >
-                          ￥6.9 解锁高级额度
+                          ￥6.9 购买高级体验包
                         </Button>
                       ) : null}
                       <Button

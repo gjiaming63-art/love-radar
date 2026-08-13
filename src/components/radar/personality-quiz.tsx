@@ -222,9 +222,9 @@ function ResultStep({
         <Card className="border-accent/30 bg-accent/10">
           <CardHeader><CardTitle className="flex items-center gap-2"><LockKeyhole className="h-5 w-5 text-accent" />想知道更深一层？</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm leading-6 text-muted-foreground">高级版可以查看你的情感触发点、相处盲区、适配沟通方式和专属行动建议。</p>
+            <p className="text-sm leading-6 text-muted-foreground">高级体验包可解锁恋爱人格、聊天报告、恋爱占星等深度版各一次，并包含高级截图额度。</p>
             <div className="grid gap-2 sm:grid-cols-2">
-              {buyUrl ? <a href={buyUrl} target="_blank" rel="noreferrer"><Button className="w-full">￥6.9 购买解锁码 <ArrowRight className="h-4 w-4" /></Button></a> : null}
+              {buyUrl ? <a href={buyUrl} target="_blank" rel="noreferrer"><Button className="w-full">￥6.9 购买体验包 <ArrowRight className="h-4 w-4" /></Button></a> : null}
               <Button type="button" variant="secondary" className="w-full" onClick={() => setShowInput((value) => !value)}>我已有兑换码</Button>
             </div>
             {showInput ? <div className="grid gap-2 sm:grid-cols-[1fr_auto]"><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="请输入兑换码，例如 LR-A8K2-P9Q7" className="min-h-11 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary" /><Button type="button" onClick={redeem} disabled={loading || !code.trim()}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}兑换并解锁</Button></div> : null}

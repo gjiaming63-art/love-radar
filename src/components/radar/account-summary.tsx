@@ -167,7 +167,7 @@ export function AccountSummary({
               )}
             </div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              每个账号可领取 1 个新人兑换码，可在任意高级功能里免费体验一次。用于聊天报告时，会同时开启高级截图额度。
+              每个账号可领取 1 个新人体验包兑换码，可免费解锁各模块深度版各一次，并开启高级截图额度。
             </p>
           </div>
         </div>

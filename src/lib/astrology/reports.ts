@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ensureCommerceSchema, getPool } from "@/lib/reports";
+import { redeemEntitlementCode } from "@/lib/unlock-codes";
 import type { AstrologyReport } from "@/types/astrology";
 
 type StoredAstrologyReport = AstrologyReport & {
@@ -192,6 +193,19 @@ export function redactAstrologyReport(report: StoredAstrologyReport): StoredAstr
 }
 
 export async function redeemAstrologyReport(code: string, reportId: string, userId?: string) {
+  const normalizedCode = code.trim().toUpperCase();
+  if (!/^LR-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
+    return { success: false, error: "兑换码格式不正确，请检查后重试。" };
+  }
+  return redeemEntitlementCode({
+    code: normalizedCode,
+    feature: "astrology",
+    targetId: reportId,
+    userId,
+  });
+}
+
+export async function redeemAstrologyReportLegacy(code: string, reportId: string, userId?: string) {
   const normalizedCode = code.trim().toUpperCase();
   if (!/^LR-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
     return { success: false, error: "兑换码格式不正确，请检查后重试。" };
