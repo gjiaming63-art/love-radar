@@ -2,16 +2,19 @@ import Link from "next/link";
 import {
   ArrowRight,
   BrainCircuit,
+  LogIn,
   MessageSquareText,
   Orbit,
   Radar,
   ShieldCheck,
   Sparkles,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth";
 
 const chips = ["渣感指数", "上头指数", "养鱼概率", "冷暴力信号", "真诚度扫描"];
 
@@ -47,25 +50,27 @@ const featureLinks: Array<{
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const user = await getCurrentUser();
+  const accountHref = user ? "/me" : "/login?redirect=/me";
+  const accountLabel = user ? "我的" : "登录";
+  const AccountIcon = user ? UserRound : LogIn;
+
   return (
     <main className="relative min-h-svh overflow-hidden px-4 py-5 sm:px-6">
       <div className="signal-grid pointer-events-none absolute inset-0 opacity-60" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-primary/10 blur-3xl" />
 
       <section className="relative mx-auto flex min-h-[calc(100svh-2.5rem)] w-full max-w-6xl flex-col">
-        <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-primary">
+        <header className="flex items-center justify-between gap-3 pr-24 sm:pr-0">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-primary">
               <Radar className="h-4 w-4" />
             </span>
-            Love Radar
+            <span className="truncate">Love Radar</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href="/me" prefetch={false} className="text-sm text-muted-foreground transition hover:text-foreground">
-              我的
-            </Link>
-            <Badge>娱乐分析</Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge className="hidden sm:inline-flex">娱乐分析</Badge>
           </div>
         </header>
 
@@ -96,11 +101,37 @@ export default function Home() {
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
+                <Link href={accountHref} prefetch={false} className="sm:w-auto">
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="w-full border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 sm:w-auto"
+                  >
+                    <AccountIcon className="h-4 w-4" />
+                    {accountLabel}
+                  </Button>
+                </Link>
                 <div className="flex items-center gap-2 text-xs leading-5 text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 text-accent" />
                   不保存聊天原文，上传前先打码
                 </div>
               </div>
+
+              <Link
+                href={accountHref}
+                prefetch={false}
+                className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-primary/25 bg-primary/10 px-4 py-3 text-left shadow-[0_0_28px_rgb(244_63_94_/_0.1)] transition hover:border-primary/45 hover:bg-primary/15"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-primary">
+                    {user ? "新人福利码已在账户里" : "首次登录赠送兑换码"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {user ? "可在“我的”页面领取或查看，用来免费解锁一次深度版。" : "登录后可领取 1 个福利码，免费体验一次深度版功能。"}
+                  </p>
+                </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-primary" />
+              </Link>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:hidden">

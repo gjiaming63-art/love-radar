@@ -1,24 +1,27 @@
 import Link from "next/link";
-import { ArrowRight, BrainCircuit, Radar, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BrainCircuit, LogIn, Radar, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { enUS } from "@/lib/i18n/en-US";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function EnglishHome() {
+export default async function EnglishHome() {
+  const user = await getCurrentUser();
+  const accountHref = user ? "/en/me" : "/en/login?redirect=/en/me";
+  const accountLabel = user ? "My account" : "Sign in";
+  const AccountIcon = user ? UserRound : LogIn;
+
   return (
     <main className="relative min-h-svh overflow-hidden px-5 py-6 text-white">
       <div className="signal-grid pointer-events-none absolute inset-0 opacity-70" />
       <section className="relative mx-auto flex min-h-[calc(100svh-3rem)] w-full max-w-5xl flex-col justify-between">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-primary">
+        <header className="flex items-center justify-between pr-24 sm:pr-0">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-primary">
               <Radar className="h-4 w-4" />
             </span>
-            {enUS.brand}
+            <span className="truncate">{enUS.brand}</span>
           </div>
-          <Link href="/en/me" prefetch={false} className="text-sm text-muted-foreground">
-            {enUS.account}
-          </Link>
         </header>
 
         <div className="grid gap-10 pb-8 pt-12 md:grid-cols-[1.05fr_0.95fr] md:items-center">
@@ -35,15 +38,25 @@ export default function EnglishHome() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link href="/en/analyze" prefetch={false}>
-                <Button size="lg">
+                <Button size="lg" className="w-full sm:w-auto">
                   {enUS.start}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/en/personality" prefetch={false}>
-                <Button size="lg" variant="secondary">
+                <Button size="lg" variant="secondary" className="w-full sm:w-auto">
                   <BrainCircuit className="h-4 w-4 text-accent" />
                   Take the quiz
+                </Button>
+              </Link>
+              <Link href={accountHref} prefetch={false}>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="w-full border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 sm:w-auto"
+                >
+                  <AccountIcon className="h-4 w-4" />
+                  {accountLabel}
                 </Button>
               </Link>
             </div>
