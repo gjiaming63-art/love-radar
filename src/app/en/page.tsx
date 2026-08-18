@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BrainCircuit, LogIn, Radar, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, BrainCircuit, LogIn, Orbit, Radar, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { enUS } from "@/lib/i18n/en-US";
@@ -47,6 +47,12 @@ export default async function EnglishHome() {
                 <Button size="lg" variant="secondary" className="w-full sm:w-auto">
                   <BrainCircuit className="h-4 w-4 text-accent" />
                   Take the quiz
+                </Button>
+              </Link>
+              <Link href="/en/astrology" prefetch={false}>
+                <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                  <Orbit className="h-4 w-4 text-primary" />
+                  Try Love Astrology
                 </Button>
               </Link>
               <Link href={accountHref} prefetch={false}>
