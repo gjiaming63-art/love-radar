@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { EnglishReportView } from "@/components/radar/en/report-view";
 import { getCurrentUser } from "@/lib/auth";
 import { getReport, redactReport } from "@/lib/reports";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("Relationship analysis report");
 
 export default async function EnglishReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/radar/login-form";
 import { getCurrentUser } from "@/lib/auth";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("登录 Love Radar");
 
 type LoginPageProps = {
   searchParams: Promise<{ redirect?: string }>;

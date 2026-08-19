@@ -2,6 +2,18 @@ import Link from "next/link";
 import { ArrowLeft, Orbit, Sparkles } from "lucide-react";
 import { AstrologyForm } from "@/components/radar/astrology-form";
 import { Badge } from "@/components/ui/badge";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata = createPageMetadata({
+  title: "恋爱占星师 | 西方占星关系分析",
+  description: "输入双方出生信息，生成西方占星合盘关系洞察，查看吸引力、情绪连接、沟通模式和长期潜力。",
+  path: "/astrology",
+  keywords: ["恋爱占星", "合盘分析", "爱情运势", "星盘关系分析", "恋爱雷达"],
+  languages: {
+    "zh-CN": "/astrology",
+    "en-US": "/en/astrology",
+  },
+});
 
 export default function AstrologyPage() {
   return (

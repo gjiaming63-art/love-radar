@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { EnglishAstrologyReportView } from "@/components/radar/en/astrology-report-view";
 import { getAstrologyReport } from "@/lib/astrology/reports";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("Love astrology report");
 
 type ReportPageProps = {
   params: Promise<{ id: string }>;

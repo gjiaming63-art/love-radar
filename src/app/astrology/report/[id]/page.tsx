@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { AstrologyReportView } from "@/components/radar/astrology-report-view";
 import { getCurrentUser } from "@/lib/auth";
 import { getAstrologyReport, redactAstrologyReport } from "@/lib/astrology/reports";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("恋爱占星报告");
 
 type ReportPageProps = {
   params: Promise<{ id: string }>;

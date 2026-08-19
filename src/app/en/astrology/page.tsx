@@ -2,6 +2,20 @@ import Link from "next/link";
 import { ArrowLeft, Orbit, Sparkles } from "lucide-react";
 import { EnglishAstrologyForm } from "@/components/radar/en/astrology-form";
 import { Badge } from "@/components/ui/badge";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata = createPageMetadata({
+  title: "Love Astrology | Relationship Chemistry by Birth Charts",
+  description:
+    "See your relationship chemistry through birth charts. Explore emotional rhythm, romantic chemistry, communication style, and long-term potential.",
+  path: "/en/astrology",
+  locale: "en_US",
+  keywords: ["love astrology", "relationship astrology", "birth chart compatibility", "relationship chemistry"],
+  languages: {
+    "zh-CN": "/astrology",
+    "en-US": "/en/astrology",
+  },
+});
 
 export default function EnglishAstrologyPage() {
   return (

@@ -15,6 +15,30 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata = createPageMetadata({
+  title: "恋爱雷达 Love Radar | AI 恋爱聊天记录分析",
+  description:
+    "上传或粘贴聊天记录，让 Love Radar AI 分析关系状态、敷衍信号、冷暴力风险、暧昧模式和下一步沟通建议。",
+  path: "/",
+  keywords: [
+    "AI relationship analysis",
+    "AI chat analysis",
+    "relationship chat analyzer",
+    "love compatibility",
+    "text message analysis",
+    "dating advice",
+    "恋爱聊天记录分析",
+    "AI 恋爱分析",
+    "聊天记录分析",
+    "恋爱雷达",
+  ],
+  languages: {
+    "zh-CN": "/",
+    "en-US": "/en",
+  },
+});
 
 const chips = ["渣感指数", "上头指数", "养鱼概率", "冷暴力信号", "真诚度扫描"];
 

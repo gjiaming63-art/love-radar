@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { CodeClaimForm } from "@/components/radar/code-claim-form";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("领取兑换码");
 
 export default function RedeemCodePage() {
   return (

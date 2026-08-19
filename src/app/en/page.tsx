@@ -4,6 +4,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { enUS } from "@/lib/i18n/en-US";
 import { getCurrentUser } from "@/lib/auth";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata = createPageMetadata({
+  title: "Love Radar AI | AI Relationship Chat Analysis",
+  description:
+    "Upload a conversation or chat screenshot. Love Radar AI helps you understand relationship signals, communication patterns, red flags, green flags, and suggested replies.",
+  path: "/en",
+  locale: "en_US",
+  keywords: [
+    "AI relationship analysis",
+    "AI chat analysis",
+    "relationship chat analyzer",
+    "love compatibility",
+    "text message analysis",
+    "dating advice",
+  ],
+  languages: {
+    "zh-CN": "/",
+    "en-US": "/en",
+  },
+});
 
 export default async function EnglishHome() {
   const user = await getCurrentUser();

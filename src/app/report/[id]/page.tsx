@@ -4,6 +4,9 @@ import { ReportView } from "@/components/radar/report-view";
 import { getCurrentUser } from "@/lib/auth";
 import { getChatAstrologyLayer, redactChatAstrologyLayer } from "@/lib/chat-astrology/layers";
 import { getReport, redactReport } from "@/lib/reports";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("恋爱分析报告");
 
 type ReportPageProps = {
   params: Promise<{ id: string }>;

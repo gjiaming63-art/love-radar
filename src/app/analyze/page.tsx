@@ -1,6 +1,18 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AnalyzeForm } from "@/components/radar/analyze-form";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata = createPageMetadata({
+  title: "AI 聊天记录分析 | 恋爱雷达",
+  description: "粘贴聊天记录或上传聊天截图，生成 AI 恋爱关系分析报告，识别敷衍、冷暴力、养鱼和沟通风险信号。",
+  path: "/analyze",
+  keywords: ["聊天记录分析", "AI 恋爱分析", "恋爱雷达", "恋爱聊天截图分析"],
+  languages: {
+    "zh-CN": "/analyze",
+    "en-US": "/en/analyze",
+  },
+});
 
 export default function AnalyzePage() {
   return (

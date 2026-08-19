@@ -2,6 +2,9 @@ import Link from "next/link";
 import { AccountSummary } from "@/components/radar/account-summary";
 import { LoginForm } from "@/components/radar/login-form";
 import { getCurrentUser, getMeOverview } from "@/lib/auth";
+import { createNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = createNoIndexMetadata("我的 Love Radar");
 
 export default async function MePage() {
   const user = await getCurrentUser();
