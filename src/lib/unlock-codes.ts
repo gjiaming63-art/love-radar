@@ -469,6 +469,104 @@ export async function redeemPersonalityCode(code: string, clientKey?: string, us
   });
 }
 
+export async function redeemScreenshotCode(code: string, clientKey?: string, userId?: string) {
+  const normalizedCode = normalizeCode(code);
+  if (!/^LR-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
+    return { success: false, error: "兑换码格式不正确，请检查后重试。" };
+  }
+  if (!clientKey) {
+    return { success: false, error: "暂时无法识别当前设备，请稍后再试。" };
+  }
+
+  await ensureCommerceSchema();
+  await ensureEntitlementBundleSchema();
+  const db = requireDb();
+  const client = await db.connect();
+  const clientHash = hashClientKey(clientKey);
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  try {
+    await client.query("BEGIN");
+
+    const codeResult = await client.query<{
+      id: string;
+      code: string;
+      expires_at: Date | null;
+      user_id: string | null;
+    }>(
+      `SELECT id, code, expires_at, user_id
+       FROM unlock_codes
+       WHERE code = $1
+       FOR UPDATE`,
+      [normalizedCode],
+    );
+    const codeRow = codeResult.rows[0];
+    if (!codeRow) {
+      await client.query("ROLLBACK");
+      return { success: false, error: "兑换码不存在，请检查后重试。" };
+    }
+    if (codeRow.expires_at && new Date(codeRow.expires_at).getTime() <= Date.now()) {
+      await client.query("ROLLBACK");
+      return { success: false, error: "兑换码已过期。" };
+    }
+    if (codeRow.user_id && userId && codeRow.user_id !== userId) {
+      await client.query("ROLLBACK");
+      return { success: false, error: "这枚兑换码已绑定其他账号。" };
+    }
+    if (codeRow.user_id && !userId) {
+      await client.query("ROLLBACK");
+      return { success: false, error: "这枚兑换码已绑定账号，请登录后使用。" };
+    }
+
+    const bundle = await ensureBundleForCode(client, {
+      codeId: codeRow.id,
+      code: normalizedCode,
+      userId: userId || codeRow.user_id,
+      clientHash,
+      expiresAt: codeRow.expires_at,
+    });
+    const remainingUses = Number(bundle.screenshot_uses);
+    const maxImagesPerUse = Number(bundle.max_images_per_use);
+    if (remainingUses <= 0) {
+      await client.query("ROLLBACK");
+      return { success: false, error: "这枚兑换码的截图额度已用完。" };
+    }
+
+    await client.query(
+      `INSERT INTO screenshot_entitlements
+        (id, client_hash, remaining_uses, max_images_per_use, source_code, user_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [randomUUID(), clientHash, remainingUses, maxImagesPerUse, normalizedCode, userId || null, expiresAt],
+    );
+    await client.query(
+      `UPDATE entitlement_bundles
+       SET screenshot_uses = 0,
+           user_id = COALESCE(user_id, $2),
+           client_hash = COALESCE(client_hash, $3)
+       WHERE id = $1`,
+      [bundle.id, userId || null, clientHash],
+    );
+    await client.query(
+      `UPDATE unlock_codes
+       SET used = TRUE,
+           used_at = COALESCE(used_at, NOW()),
+           user_id = COALESCE(user_id, $2)
+       WHERE id = $1`,
+      [codeRow.id, userId || null],
+    );
+
+    await client.query("COMMIT");
+    return { success: true, remainingUses, maxImagesPerUse };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    console.error("redeem screenshot code failed:", error);
+    return { success: false, error: "兑换失败，请稍后重试。" };
+  } finally {
+    client.release();
+  }
+}
+
 async function redeemPromoInviteCode(code: string, reportId: string, clientKey?: string, userId?: string) {
   if (!reportId.trim()) return { success: false, error: "缺少报告 ID。" };
   if (!clientKey) return { success: false, error: "暂时无法识别当前设备，请稍后再试。" };

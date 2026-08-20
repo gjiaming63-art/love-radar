@@ -64,6 +64,9 @@ export function AnalyzeForm() {
   const [lastSubmitLength, setLastSubmitLength] = useState<number | null>(null);
   const [pasteNotice, setPasteNotice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [screenshotCode, setScreenshotCode] = useState("");
+  const [screenshotRedeemLoading, setScreenshotRedeemLoading] = useState(false);
+  const [screenshotRedeemMessage, setScreenshotRedeemMessage] = useState("");
   const parsedTranscript = useMemo(() => parseWechatTranscript(chatText), [chatText]);
   const analysisText = parsedTranscript.normalizedText || chatText;
   const count = analysisText.length;
@@ -268,6 +271,46 @@ export function AnalyzeForm() {
     }
   }
 
+  async function handleRedeemScreenshotQuota() {
+    setScreenshotRedeemMessage("");
+    const code = screenshotCode.trim().toUpperCase();
+    if (!code) {
+      setScreenshotRedeemMessage("请输入兑换码。");
+      return;
+    }
+
+    setScreenshotRedeemLoading(true);
+    try {
+      const response = await fetch("/api/redeem-screenshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        remainingUses?: number;
+        maxImagesPerUse?: number;
+      };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "兑换失败，请稍后重试。");
+      }
+
+      setOcrLimitReached(false);
+      setOcrError("");
+      setScreenshotCode("");
+      setScreenshotRedeemMessage(
+        `兑换成功，已开启 ${payload.remainingUses ?? 10} 次高级截图额度，每次最多 ${
+          payload.maxImagesPerUse ?? maxChatImageCount
+        } 张。`,
+      );
+    } catch (redeemError) {
+      setScreenshotRedeemMessage(redeemError instanceof Error ? redeemError.message : "兑换失败，请稍后重试。");
+    } finally {
+      setScreenshotRedeemLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="space-y-3">
@@ -446,6 +489,11 @@ export function AnalyzeForm() {
                 ? "截图上传维护中"
                 : `免费 ${screenshotDailyLimit} 次/天 · 免费最多 ${freeChatImageCount} 张 · 高级最多 ${maxChatImageCount} 张`}
             </span>
+            {screenshotRedeemMessage && !ocrLimitReached ? (
+              <span className="rounded-md border border-primary/35 bg-primary/10 p-3 text-primary">
+                {screenshotRedeemMessage}
+              </span>
+            ) : null}
             {ocrLimitReached ? (
               <div className="rounded-lg border border-primary/35 bg-primary/10 p-4 text-foreground">
                 <div className="flex items-start gap-3">
@@ -474,6 +522,27 @@ export function AnalyzeForm() {
                         继续用文字免费分析
                       </Button>
                     </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <input
+                        value={screenshotCode}
+                        onChange={(event) => setScreenshotCode(event.target.value.toUpperCase())}
+                        placeholder="输入兑换码，开启高级截图额度"
+                        className="min-h-10 rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none transition focus:border-primary"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleRedeemScreenshotQuota}
+                        disabled={screenshotRedeemLoading || !screenshotCode.trim()}
+                      >
+                        {screenshotRedeemLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        兑换截图额度
+                      </Button>
+                    </div>
+                    {screenshotRedeemMessage ? (
+                      <p className="mt-2 text-xs leading-5 text-primary">{screenshotRedeemMessage}</p>
+                    ) : null}
                     {ocrError ? <p className="mt-2 text-xs leading-5 text-muted-foreground">{ocrError}</p> : null}
                   </div>
                 </div>
