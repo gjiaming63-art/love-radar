@@ -10,6 +10,20 @@ export type ProductStats = {
   premiumInterest: number;
 };
 
+export type ProductEventName =
+  | "visit"
+  | "premium_click"
+  | "premium_interest"
+  | "english_report_generated"
+  | "english_share_clicked"
+  | "personality_page_view"
+  | "personality_test_start"
+  | "personality_test_complete"
+  | "personality_result_view"
+  | "personality_card_generate"
+  | "personality_card_save"
+  | "personality_chat_analysis_click";
+
 let metricsSchemaReady: Promise<void> | null = null;
 
 export async function trackProductEvent({
@@ -20,7 +34,7 @@ export async function trackProductEvent({
   userId,
   request,
 }: {
-  eventName: "visit" | "premium_click" | "premium_interest" | "english_report_generated" | "english_share_clicked";
+  eventName: ProductEventName;
   reportId?: string | null;
   source?: string | null;
   locale?: "zh-CN" | "en-US" | null;

@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { VisitTracker } from "@/components/radar/visit-tracker";
-import { GlobalLanguageSwitcher } from "@/components/radar/global-language-switcher";
 import { siteName, siteUrl } from "@/lib/seo";
 import "./globals.css";
 
@@ -107,7 +106,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
         />
         {children}
-        <GlobalLanguageSwitcher />
         <VisitTracker />
         <Analytics />
       </body>

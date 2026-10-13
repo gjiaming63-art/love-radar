@@ -11,7 +11,20 @@ export async function POST(request: Request) {
       locale?: "zh-CN" | "en-US";
     };
 
-    const allowed = ["visit", "premium_click", "premium_interest", "english_report_generated", "english_share_clicked"];
+    const allowed = [
+      "visit",
+      "premium_click",
+      "premium_interest",
+      "english_report_generated",
+      "english_share_clicked",
+      "personality_page_view",
+      "personality_test_start",
+      "personality_test_complete",
+      "personality_result_view",
+      "personality_card_generate",
+      "personality_card_save",
+      "personality_chat_analysis_click",
+    ];
     if (!allowed.includes(String(body.eventName))) {
       return NextResponse.json({ error: "Unsupported event." }, { status: 400 });
     }

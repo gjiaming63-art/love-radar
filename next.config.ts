@@ -5,6 +5,20 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  async rewrites() {
+    return [
+      {
+        source: "/",
+        has: [
+          {
+            type: "host",
+            value: "personality.lovescannerai.com",
+          },
+        ],
+        destination: "/personality",
+      },
+    ];
+  },
   async redirects() {
     return [
       {

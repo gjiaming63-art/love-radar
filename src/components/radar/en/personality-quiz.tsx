@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, ArrowRight, BrainCircuit, Check, LockKeyhole, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, BrainCircuit, RotateCcw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,12 +57,12 @@ export function EnglishPersonalityQuiz() {
     <main className="relative min-h-svh overflow-hidden px-4 py-5 text-white sm:px-6">
       <div className="signal-grid pointer-events-none absolute inset-0 opacity-45" />
       <div className="relative mx-auto flex min-h-[calc(100svh-2.5rem)] w-full max-w-xl flex-col">
-        <header className="mb-8 flex items-center justify-between">
-          <Link href="/en" prefetch={false} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white">
-            <ArrowLeft className="h-4 w-4" />
-            Love Radar AI
-          </Link>
-          <div className="flex items-center gap-2 text-sm font-medium">
+        <header className="mb-8 flex items-center justify-between gap-3">
+          <div className="min-w-0 inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_12px_rgb(244_63_94)]" />
+            Love Radar · Standalone Love Type Quiz
+          </div>
+          <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm font-medium">
             <span className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-primary">
               <BrainCircuit className="h-4 w-4" />
             </span>
@@ -182,13 +181,6 @@ function ResultStep({
   scores: Record<string, number>;
   onRestart: () => void;
 }) {
-  const buyUrl = process.env.NEXT_PUBLIC_MBD_BUY_URL;
-  const [message, setMessage] = useState("");
-
-  function interest() {
-    setMessage("Premium depth analysis is coming soon. For now, use this result as your shareable snapshot.");
-  }
-
   return (
     <section className="space-y-4">
       <div className="text-center">
@@ -245,37 +237,8 @@ function ResultStep({
           </div>
         </CardContent>
       </Card>
-      <Card className="border-accent/30 bg-accent/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LockKeyhole className="h-5 w-5 text-accent" />
-            Want the deeper read?
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm leading-6 text-muted-foreground">
-            Premium can expand this into emotional triggers, best match dynamics, risky patterns, texting style, and smart replies.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {buyUrl ? (
-              <a href={buyUrl} target="_blank" rel="noreferrer">
-                <Button className="w-full">Unlock code</Button>
-              </a>
-            ) : null}
-            <Button type="button" variant="secondary" className="w-full" onClick={interest}>
-              Premium coming soon
-            </Button>
-          </div>
-          {message ? <p className="text-xs leading-5 text-muted-foreground">{message}</p> : null}
-        </CardContent>
-      </Card>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Link href="/en/analyze" prefetch={false}>
-          <Button className="w-full">
-            <Check className="h-4 w-4" />
-            Analyze a real chat
-          </Button>
-        </Link>
+      <p className="text-center text-xs text-accent">The complete love type report is free — no purchase or code required.</p>
+      <div className="grid gap-3">
         <Button type="button" variant="secondary" onClick={onRestart} className="w-full">
           <RotateCcw className="h-4 w-4" />
           Retake quiz

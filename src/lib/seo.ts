@@ -13,6 +13,10 @@ type PageSeo = {
   locale?: Locale;
   keywords?: string[];
   languages?: Record<string, string>;
+  ogImage?: string;
+  ogImageWidth?: number;
+  ogImageHeight?: number;
+  ogImageAlt?: string;
 };
 
 export function absoluteUrl(path = "/") {
@@ -26,6 +30,10 @@ export function createPageMetadata({
   locale = "zh_CN",
   keywords,
   languages,
+  ogImage = defaultOgImage,
+  ogImageWidth = 1024,
+  ogImageHeight = 1024,
+  ogImageAlt = "Love Radar AI",
 }: PageSeo): Metadata {
   const url = absoluteUrl(path);
 
@@ -48,10 +56,10 @@ export function createPageMetadata({
       locale,
       images: [
         {
-          url: defaultOgImage,
-          width: 1024,
-          height: 1024,
-          alt: "Love Radar AI",
+          url: ogImage,
+          width: ogImageWidth,
+          height: ogImageHeight,
+          alt: ogImageAlt,
         },
       ],
     },
@@ -59,7 +67,7 @@ export function createPageMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [defaultOgImage],
+      images: [ogImage],
     },
     robots: {
       index: true,

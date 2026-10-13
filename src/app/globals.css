@@ -87,6 +87,20 @@ textarea {
   animation: scan 4.8s ease-in-out infinite;
 }
 
+.personality-signal-orbit {
+  animation: personality-orbit 3.6s ease-in-out infinite;
+}
+
+@keyframes personality-orbit {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
+}
+
 @keyframes scan {
   0%,
   100% {
@@ -100,7 +114,8 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scan-line {
+  .scan-line,
+  .personality-signal-orbit {
     animation: none;
   }
 }
