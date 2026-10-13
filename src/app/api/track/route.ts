@@ -24,6 +24,8 @@ export async function POST(request: Request) {
       "personality_card_generate",
       "personality_card_save",
       "personality_chat_analysis_click",
+      "checkout_click",
+      "payment_return",
     ];
     if (!allowed.includes(String(body.eventName))) {
       return NextResponse.json({ error: "Unsupported event." }, { status: 400 });

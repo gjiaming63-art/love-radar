@@ -22,7 +22,11 @@ export type ProductEventName =
   | "personality_result_view"
   | "personality_card_generate"
   | "personality_card_save"
-  | "personality_chat_analysis_click";
+  | "personality_chat_analysis_click"
+  | "checkout_click"
+  | "checkout_started"
+  | "payment_completed"
+  | "payment_return";
 
 let metricsSchemaReady: Promise<void> | null = null;
 

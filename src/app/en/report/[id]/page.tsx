@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { EnglishReportView } from "@/components/radar/en/report-view";
 import { getCurrentUser } from "@/lib/auth";
+import { isLemonSqueezyConfigured } from "@/lib/lemonsqueezy";
 import { getReport, redactReport } from "@/lib/reports";
 import { createNoIndexMetadata } from "@/lib/seo";
 
@@ -16,6 +17,13 @@ export default async function EnglishReportPage({ params }: { params: Promise<{ 
   const effectiveReport = user?.isTestAccount
     ? { ...report, isPaid: true, paidAt: report.paidAt ?? new Date().toISOString() }
     : report;
-  const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
-  return <EnglishReportView report={paywallEnabled ? redactReport(effectiveReport) : effectiveReport} />;
+  const checkoutEnabled = isLemonSqueezyConfigured();
+  const paywallEnabled = checkoutEnabled || Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
+  return (
+    <EnglishReportView
+      report={paywallEnabled ? redactReport(effectiveReport) : effectiveReport}
+      checkoutEnabled={checkoutEnabled}
+      price={process.env.NEXT_PUBLIC_REPORT_PRICE_LABEL || "$4.99"}
+    />
+  );
 }
