@@ -17,7 +17,7 @@ export const enUS = {
   premium: "Premium analysis coming soon",
   notify: "Get notified when premium is available",
   disclaimer: "AI-generated for entertainment and communication reference only. Not psychological, legal, or relationship advice.",
-  privacy: "Please remove phone numbers, addresses, IDs, and other sensitive details before uploading.",
+  privacy: "Only upload conversations you personally took part in. Please remove phone numbers, addresses, IDs, and other sensitive details first. Raw chats are not saved.",
   login: "Sign in with email",
   reports: "My reports",
 } as const;

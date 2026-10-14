@@ -13,7 +13,8 @@ export default function TermsPage() {
       <p>You must be at least 18 years old to use Love Radar.</p>
       <h2>Your content</h2>
       <ul>
-        <li>Only upload conversations you have the right to share, and remove phone numbers, addresses and other sensitive details first.</li>
+        <li>Only upload conversations that you personally took part in. Do not upload other people&apos;s private conversations.</li>
+        <li>Remove phone numbers, addresses and other sensitive details before uploading.</li>
         <li>Do not use Love Radar to harass, stalk, monitor or harm anyone.</li>
         <li>You keep ownership of what you upload. You give us permission to process it only to generate your report.</li>
       </ul>
