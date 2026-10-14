@@ -17,10 +17,10 @@ export default function PrivacyPage() {
       <ul>
         <li>Account data: your email address if you sign in.</li>
         <li>Usage data: anonymous product events (for example page views and button clicks) and a hashed device identifier, used to improve the product and prevent abuse.</li>
-        <li>Payment data: handled by Lemon Squeezy. We receive order details such as order ID, amount and email, but never your card details.</li>
+        <li>Payment data: handled by our payment provider (Merchant of Record). We receive order details such as order ID, amount and email, but never your card details.</li>
       </ul>
       <h2>Service providers</h2>
-      <p>We use third-party providers to run the service, including AI model providers (DeepSeek and Alibaba Cloud Qwen) to analyze conversations, Vercel for hosting, Neon for our database, Resend for login emails and Lemon Squeezy for payments. They process data on our behalf and may be located outside your country.</p>
+      <p>We use third-party providers to run the service, including AI model providers (DeepSeek and Alibaba Cloud Qwen) to analyze conversations, Vercel for hosting, Neon for our database, Resend for login emails and a Merchant of Record payment provider for payments. They process data on our behalf and may be located outside your country.</p>
       <h2>We do not</h2>
       <ul>
         <li>Sell your personal data.</li>

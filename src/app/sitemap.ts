@@ -9,7 +9,10 @@ const publicPages = [
   { path: "/en", priority: 0.9 },
   { path: "/en/analyze", priority: 0.85 },
   { path: "/en/personality", priority: 0.7 },
-  { path: "/en/astrology", priority: 0.7 },
+  { path: "/en/terms", priority: 0.3 },
+  { path: "/en/privacy", priority: 0.3 },
+  { path: "/en/refund", priority: 0.3 },
+  { path: "/en/contact", priority: 0.3 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

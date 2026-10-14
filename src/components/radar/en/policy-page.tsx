@@ -26,6 +26,7 @@ export function PolicyFooter() {
   return (
     <footer className="px-5 pb-8 pt-4 text-xs text-muted-foreground">
       <nav className="mx-auto flex w-full max-w-5xl flex-wrap justify-center gap-x-5 gap-y-2">
+        <Link href="/en#pricing" prefetch={false}>Pricing</Link>
         <Link href="/en/terms" prefetch={false}>Terms</Link>
         <Link href="/en/privacy" prefetch={false}>Privacy</Link>
         <Link href="/en/refund" prefetch={false}>Refunds</Link>

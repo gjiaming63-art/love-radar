@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BrainCircuit, LogIn, Orbit, Radar, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, BrainCircuit, Check, LogIn, Radar, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { enUS } from "@/lib/i18n/en-US";
@@ -70,12 +70,6 @@ export default async function EnglishHome() {
                   Take the quiz
                 </Button>
               </Link>
-              <Link href="/en/astrology" prefetch={false}>
-                <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                  <Orbit className="h-4 w-4 text-primary" />
-                  Try Love Astrology
-                </Button>
-              </Link>
               <Link href={accountHref} prefetch={false}>
                 <Button
                   size="lg"
@@ -101,6 +95,26 @@ export default async function EnglishHome() {
               <Sparkles className="mx-auto h-8 w-8 text-primary" />
               <p className="mt-3 text-sm text-muted-foreground">See what the chat is really saying.</p>
             </div>
+          </div>
+        </div>
+      </section>
+      <section id="pricing" className="relative mx-auto w-full max-w-5xl pb-10">
+        <h2 className="text-2xl font-semibold">Pricing</h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+            <p className="text-sm text-muted-foreground">Free analysis</p>
+            <p className="mt-2 text-3xl font-semibold">$0</p>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              {["Overall score and relationship stage", "Signal scores (sincerity, avoidance, mixed signals…)", "Top red flags and green flags"].map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />{item}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-[28px] border border-primary/30 bg-primary/10 p-5">
+            <p className="text-sm text-primary">Full report</p>
+            <p className="mt-2 text-3xl font-semibold">$4.99 <span className="text-sm font-normal text-muted-foreground">one-time, per conversation</span></p>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              {["Word-for-word reply suggestions", "If-they-do-this, you-do-that game plan", "All red and green flags with explanations", "Mistakes to avoid"].map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{item}</li>)}
+            </ul>
+            <p className="mt-4 text-xs text-muted-foreground">No subscription. Delivered instantly on your report page. 7-day refund policy.</p>
           </div>
         </div>
       </section>

@@ -101,7 +101,7 @@ export function EnglishReportView({
             )}
             <Link href={`/en/login?redirect=/en/report/${report.id}`} prefetch={false}><Button type="button" variant="secondary">Sign in to save</Button></Link>
           </div>
-          {checkoutEnabled ? <p className="mt-3 text-xs text-muted-foreground">One-time payment. No subscription. Secure checkout by Lemon Squeezy.</p> : null}
+          {checkoutEnabled ? <p className="mt-3 text-xs text-muted-foreground">One-time payment. No subscription. Secure checkout.</p> : null}
           {returnedFromPayment && !report.isPaid ? <p className="mt-3 text-sm text-accent">Paid but still locked? Refresh in a minute, or contact us with your order email.</p> : null}
           {message ? <p className="mt-3 text-sm text-accent">{message}</p> : null}
         </section>

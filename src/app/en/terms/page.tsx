@@ -18,7 +18,7 @@ export default function TermsPage() {
         <li>You keep ownership of what you upload. You give us permission to process it only to generate your report.</li>
       </ul>
       <h2>Paid reports</h2>
-      <p>Some features, such as the full report, require a one-time payment. Prices are shown before checkout. Payments are processed by our reseller and Merchant of Record, Lemon Squeezy, which also handles applicable taxes and issues receipts. Refunds are covered by our <a href="/en/refund">Refund Policy</a>.</p>
+      <p>Some features, such as the full report, require a one-time payment. Prices are shown before checkout. Payments are processed by our payment provider, which acts as Merchant of Record, handles applicable taxes and issues receipts. Refunds are covered by our <a href="/en/refund">Refund Policy</a>.</p>
       <h2>Availability</h2>
       <p>We may change, suspend or discontinue features at any time. Reports may expire and be deleted after a period of time.</p>
       <h2>Limitation of liability</h2>
