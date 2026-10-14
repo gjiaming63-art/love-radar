@@ -23,8 +23,7 @@ export async function POST(request: Request) {
     const parsedTranscript = parseWechatTranscript(rawChatText);
     const chatText = normalizeChatText(parsedTranscript.normalizedText || rawChatText);
     console.log("received chatText length:", chatText.length);
-    console.log("received chatText preview:", chatText.slice(0, 500));
-    console.log("parsed messages:", parsedTranscript.messages.length, "speakers:", parsedTranscript.speakers.join(","));
+    console.log("parsed messages:", parsedTranscript.messages.length, "speakers:", parsedTranscript.speakers.length);
     const mode = body.mode ?? "comprehensive";
     const validMode =
       typeof mode === "string" && (analysisModes.some((item) => item.value === mode) || mode.length > 0);
