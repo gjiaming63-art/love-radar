@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { createDodoCheckout, isDodoConfigured } from "@/lib/dodo";
 import { createReportCheckout } from "@/lib/lemonsqueezy";
 import { trackProductEvent } from "@/lib/product-metrics";
 import { getReport } from "@/lib/reports";
@@ -15,7 +16,8 @@ export async function POST(request: Request) {
     if (report.isPaid) return NextResponse.json({ alreadyPaid: true });
 
     const user = await getCurrentUser();
-    const result = await createReportCheckout({ reportId, userId: user?.id, email: user?.email });
+    const checkoutInput = { reportId, userId: user?.id, email: user?.email };
+    const result = isDodoConfigured() ? await createDodoCheckout(checkoutInput) : await createReportCheckout(checkoutInput);
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 503 });
 
     await trackProductEvent({ eventName: "checkout_started", reportId, locale: "en-US", userId: user?.id, request }).catch(

@@ -27,6 +27,13 @@ export function EnglishReportView({
   useEffect(() => {
     if (!returnedFromPayment) return;
     void fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: "payment_return", reportId: report.id, locale: "en-US" }) }).catch(() => undefined);
+    const paymentId = searchParams.get("payment_id");
+    if (paymentId && !report.isPaid) {
+      void fetch("/api/checkout/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reportId: report.id, paymentId }) })
+        .then((response) => response.json())
+        .then((data: { unlocked?: boolean }) => { if (data.unlocked) router.refresh(); })
+        .catch(() => undefined);
+    }
     // run once per return
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
