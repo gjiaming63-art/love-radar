@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { sessionCookieName, verifyLoginCode } from "@/lib/auth";
+import { setAuthSessionCookie, verifyLoginCode } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -9,14 +8,7 @@ export async function POST(request: Request) {
     if (!result.success || !result.session) {
       return NextResponse.json(result, { status: 400 });
     }
-    const cookieStore = await cookies();
-    cookieStore.set(sessionCookieName, result.session.token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      expires: result.session.expiresAt,
-    });
+    await setAuthSessionCookie(result.session);
     return NextResponse.json({ success: true, user: result.user });
   } catch (error) {
     console.error(error);
