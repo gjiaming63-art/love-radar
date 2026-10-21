@@ -7,7 +7,7 @@ export const enUS = {
   tagline: "Understand the signals behind your conversations.",
   subline: "Upload a chat. Get a clearer read on your relationship.",
   analyzeTitle: "Upload a conversation",
-  analyzeHint: "Paste a chat or upload screenshots. Your original chat is not saved.",
+  analyzeHint: "Upload screenshots of your chat. Your original chat is not saved.",
   textMode: "Chat text",
   imageMode: "Chat screenshots",
   generate: "Generate analysis",

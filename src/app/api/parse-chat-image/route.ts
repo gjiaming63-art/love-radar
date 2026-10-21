@@ -55,17 +55,16 @@ export async function POST(request: Request) {
       }
     }
 
-    const quota = await consumeScreenshotQuota(clientKey, dailyLimit, images.length, user?.id, Boolean(user?.isTestAccount));
-    if (!quota.ok) {
+    // Check (but don't spend) quota first: a failed read must not burn the user's free attempt.
+    if (quotaStatus.freeRemaining <= 0 && quotaStatus.paidRemaining <= 0) {
       return NextResponse.json(
         {
           code: "SCREENSHOT_DAILY_LIMIT_REACHED",
-          error:
-            imageError(locale, "dailyLimit"),
-          dailyLimit: quota.limit,
-          remaining: quota.remaining,
-          paidRemaining: quota.paidRemaining,
-          maxImageCount: quota.maxImagesPerUse,
+          error: imageError(locale, "dailyLimit"),
+          dailyLimit,
+          remaining: quotaStatus.freeRemaining,
+          paidRemaining: quotaStatus.paidRemaining,
+          maxImageCount,
         },
         { status: 429 },
       );
@@ -95,6 +94,25 @@ export async function POST(request: Request) {
       throw new Error("No chat bubbles were parsed from the screenshots.");
     }
     const parsed = mergeParsedBatches(parsedBatches, locale);
+    if (!parsed.messages.length) {
+      throw new Error("No chat bubbles were parsed from the screenshots.");
+    }
+
+    // Only spend quota once we actually read the chat.
+    const quota = await consumeScreenshotQuota(clientKey, dailyLimit, images.length, user?.id, Boolean(user?.isTestAccount));
+    if (!quota.ok) {
+      return NextResponse.json(
+        {
+          code: "SCREENSHOT_DAILY_LIMIT_REACHED",
+          error: imageError(locale, "dailyLimit"),
+          dailyLimit: quota.limit,
+          remaining: quota.remaining,
+          paidRemaining: quota.paidRemaining,
+          maxImageCount: quota.maxImagesPerUse,
+        },
+        { status: 429 },
+      );
+    }
     if (failedBatches.length) {
       parsed.warnings.push(
         locale === "en-US"

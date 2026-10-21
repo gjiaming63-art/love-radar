@@ -121,17 +121,28 @@ export function EnglishAnalyzeForm() {
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{enUS.analyzeHint}</p>
       </div>
       <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm leading-6 text-muted-foreground">{enUS.privacy}</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={() => document.getElementById("chat-text")?.focus()} className="rounded-2xl border border-primary/40 bg-primary/10 p-4 text-left text-sm text-white">{enUS.textMode}<span className="mt-1 block text-xs text-muted-foreground">Free text analysis: 3/day</span></button>
-        <button type="button" onClick={() => inputRef.current?.click()} className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-left text-sm text-white"><ImagePlus className="mb-2 h-5 w-5 text-accent" />{enUS.imageMode}<span className="mt-1 block text-xs text-muted-foreground">Free screenshot analysis: 1/day, up to 4 images</span></button>
-      </div>
-      <textarea id="chat-text" value={text} onChange={(event) => { setText(event.target.value); setImages([]); setParsedMessages(null); }} rows={10} placeholder="Paste the conversation here..." className="min-h-[240px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none focus:border-primary/70" />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={stage === "reading"}
+        className="flex w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-accent/50 bg-accent/10 px-5 py-8 text-center text-white transition hover:bg-accent/15 disabled:opacity-60"
+      >
+        <ImagePlus className="h-8 w-8 text-accent" />
+        <span className="mt-3 text-lg font-semibold">{images.length ? "Choose different screenshots" : "Upload chat screenshots"}</span>
+        <span className="mt-1 text-xs leading-5 text-muted-foreground">iMessage, Instagram, WhatsApp, Snapchat, Tinder, Hinge and more</span>
+        <span className="mt-1 text-xs leading-5 text-muted-foreground">Up to 4 screenshots · 1 free analysis per day</span>
+      </button>
       <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
+      <details className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white" open={Boolean(text)}>
+        <summary className="cursor-pointer select-none text-sm text-muted-foreground">Or paste the chat as text (e.g. a WhatsApp chat export)</summary>
+        <textarea id="chat-text" value={text} onChange={(event) => { setText(event.target.value); setImages([]); setParsedMessages(null); }} rows={8} placeholder={"Alex: hey, you around this weekend?\nMe: maybe! what's up?"} className="mt-3 min-h-[200px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none focus:border-primary/70" />
+        <span className="mt-2 block text-xs text-muted-foreground">Free text analysis: 3 per day</span>
+      </details>
       {images.length ? <p className="text-xs text-muted-foreground">{images.length} screenshot{images.length > 1 ? "s" : ""} selected.</p> : null}
       {isScreenshotConversation ? (
         <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-white">
           <div className="flex items-center gap-2 font-medium"><Users className="h-4 w-4 text-accent" />Chat direction recognized</div>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">Right-side bubbles are set as <strong className="text-white">Me</strong>; left-side bubbles are set as <strong className="text-white">Other</strong>. Your report will analyze the other person&apos;s signals toward you.</p>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">Your messages (right side, or labeled &ldquo;ME&rdquo;) are set as <strong className="text-white">Me</strong>; the other person&apos;s are set as <strong className="text-white">Other</strong>. Your report will analyze their signals toward you.</p>
         </div>
       ) : speakers.length >= 2 ? (
         <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-white">

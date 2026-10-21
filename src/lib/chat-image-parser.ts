@@ -159,6 +159,7 @@ This is a fallback mode. Be permissive:
 - Supported apps include Instagram DM, iMessage, WhatsApp, Messenger, TikTok DM, WeChat, Telegram, LINE, Snapchat, and similar chat screens.
 - Extract readable message text from the central conversation area, top to bottom.
 - If you can infer sides, use speaker "user" for right-side messages and "target" for left-side messages.
+- If messages are grouped under sender labels (e.g. Snapchat shows "ME" and the friend's name, all on the left), use the label instead of the side: "ME"/"You" = "user", the other name = "target".
 - If side is unclear, still include the text and alternate speakers only when it is clearly a back-and-forth conversation.
 - Ignore app chrome, username header, status bar, timestamps, Seen/Delivered, keyboard, input field, and navigation.
 - Do not invent missing words. Keep partial readable messages with lower confidence.
@@ -197,7 +198,8 @@ Supported apps include Instagram DM, iMessage, WhatsApp, Messenger, TikTok DM, W
 Rules:
 1. Extract actual message text in visual order, top to bottom.
 2. For Instagram DM and most chat apps: right-side bubbles/messages are the user, speaker "user"; left-side bubbles/messages are the other person, speaker "target".
-3. Right-side blue, purple, gradient, or colored messages usually mean "user". Left-side gray, white, or dark messages usually mean "target".
+3. Right-side blue, purple, gradient, or colored messages usually mean "user". Left-side gray, white, or dark messages usually mean "target". This also applies to dating apps such as Tinder, Hinge and Bumble, and to dark mode.
+3b. Label-based layouts: some apps (notably Snapchat) show ALL messages on the left, grouped under a sender label such as "ME" and the friend's name, often with a colored label or colored vertical line. In these layouts IGNORE the side and use the label: messages under "ME" (or "You") are speaker "user"; messages under the other person's name are speaker "target". Each message belongs to the nearest sender label above it. Set participants.targetLabel to that name.
 4. Ignore app chrome: status bar, username header, profile buttons, timestamps, "Seen", "Delivered", reaction counters, keyboard, input box, camera/mic icons, ads, and navigation.
 5. Do not require perfect rounded bubbles. Instagram DMs may show compact rows, dark mode text, shared posts, replies, reactions, or image placeholders. Extract any readable message-like text from the conversation area.
 6. If a message is partially readable, include the readable part and lower confidence. Do not invent missing words.
@@ -218,6 +220,7 @@ ${jsonShape}`;
 1. 按视觉顺序从上到下提取真实消息文本。
 2. Instagram DM 和多数聊天软件里，右侧气泡/消息是用户本人，speaker 填 "user"；左侧气泡/消息是对方，speaker 填 "target"。
 3. 右侧蓝色、紫色、渐变色、彩色消息通常是用户；左侧灰色、白色、深色消息通常是对方。
+3b. 按名字分组的版式（例如 Snapchat：所有消息都靠左，上方标注 "ME" 或对方名字）：忽略左右，按标签判断。"ME"/"我" 下面的消息是 "user"，对方名字下面的是 "target"；每条消息归属于它上方最近的名字标签。
 4. 忽略状态栏、昵称栏、资料按钮、时间、Seen/Delivered、已读提示、表情反应计数、键盘、输入框、相机/语音按钮、广告、底部导航。
 5. 不要强制要求完美气泡。Instagram DM 可能是紧凑消息行、深色模式文字、转发帖子、回复片段、表情反应或图片占位。只要是聊天区域里的可读消息，就要提取。
 6. 如果一条消息只能看清一部分，就提取看清的部分并降低 confidence，不要编造。
