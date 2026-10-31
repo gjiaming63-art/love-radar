@@ -10,5 +10,12 @@ export function clampScore(value: unknown, fallback = 50) {
 
 export function compactText(value: string, maxLength = 160) {
   const text = value.replace(/\s+/g, " ").trim();
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength - 1);
+  // For space-separated languages, end on a sentence or word boundary instead of mid-word.
+  const sentenceEnd = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  if (sentenceEnd >= maxLength * 0.6) return cut.slice(0, sentenceEnd + 1);
+  const space = cut.lastIndexOf(" ");
+  if (space >= maxLength * 0.8) return `${cut.slice(0, space).replace(/[,;:\-–—]+$/, "")}...`;
+  return `${cut}...`;
 }

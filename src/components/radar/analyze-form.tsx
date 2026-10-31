@@ -22,7 +22,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   analysisModes,
   type AnalysisMode,
-  type LoveReport,
   type ParsedChatImageMessage,
   type ParsedChatImageResult,
   type RoleContext,
@@ -242,29 +241,22 @@ export function AnalyzeForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chatText: normalizedChatText, mode, roleContext, parsedMessages }),
       });
-      const analyzePayload = (await analyzeResponse.json()) as {
-        report?: LoveReport;
+      const analyzePayload = (await analyzeResponse.json().catch(() => ({}))) as {
+        report?: { id: string; deleteToken?: string };
         error?: string;
       };
-      if (!analyzeResponse.ok || !analyzePayload.report) {
+      if (!analyzeResponse.ok || !analyzePayload.report?.id) {
         throw new Error(analyzePayload.error || "分析失败");
       }
 
-      const saveResponse = await fetch("/api/reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report: analyzePayload.report }),
-      });
-      const savePayload = (await saveResponse.json()) as {
-        report?: LoveReport & { id: string; deleteToken: string };
-        error?: string;
-      };
-      if (!saveResponse.ok || !savePayload.report?.id) {
-        throw new Error(savePayload.error || "保存报告失败");
+      if (analyzePayload.report.deleteToken) {
+        try {
+          localStorage.setItem(`love-radar-delete:${analyzePayload.report.id}`, analyzePayload.report.deleteToken);
+        } catch {
+          // storage unavailable (private mode etc.)
+        }
       }
-
-      localStorage.setItem(`love-radar-delete:${savePayload.report.id}`, savePayload.report.deleteToken);
-      router.push(`/report/${savePayload.report.id}`);
+      router.push(`/report/${analyzePayload.report.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "生成失败，请稍后重试");
     } finally {

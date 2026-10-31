@@ -43,10 +43,13 @@ function extractJson(text: string) {
   return raw.slice(start, end + 1);
 }
 
-function stringList(value: unknown, fallback: string[], limit: number) {
+// English needs roughly 2.5x the characters of Chinese to say the same thing.
+const len = (zh: number, en: number, english: boolean) => (english ? en : zh);
+
+function stringList(value: unknown, fallback: string[], limit: number, english = false) {
   if (!Array.isArray(value)) return fallback;
   const items = value
-    .map((item) => compactText(String(item ?? ""), 90))
+    .map((item) => compactText(String(item ?? ""), len(90, 220, english)))
     .filter(Boolean)
     .slice(0, limit);
   return items.length ? items : fallback;
@@ -58,8 +61,8 @@ function evidenceList(value: unknown, fallback: EvidenceItem[], limit: number, l
     .map((item) => {
       const input = item as Partial<EvidenceItem>;
       return {
-        quote: compactText(String(input.quote ?? ""), 90),
-        reason: compactText(String(input.reason ?? ""), 140),
+        quote: compactText(String(input.quote ?? ""), len(90, 180, locale === "en-US")),
+        reason: compactText(String(input.reason ?? ""), len(140, 300, locale === "en-US")),
         strength: locale === "en-US" ? normalizeEnglishStrength(input.strength) : normalizeStrength(input.strength),
       };
     })
@@ -82,35 +85,35 @@ function normalizeStrength(value: unknown): "强" | "中" | "弱" {
   return "中";
 }
 
-function confidencePayload(value: unknown, fallback: ReportConfidence): ReportConfidence {
-  const input = value as Partial<ReportConfidence>;
+function confidencePayload(value: unknown, fallback: ReportConfidence, english = false): ReportConfidence {
+  const input = (value ?? {}) as Partial<ReportConfidence>;
   return {
-    level: compactText(String(input.level || fallback.level), 8),
-    reason: compactText(String(input.reason || fallback.reason), 160),
+    level: compactText(String(input.level || fallback.level), len(8, 20, english)),
+    reason: compactText(String(input.reason || fallback.reason), len(160, 320, english)),
     messageCount: Number.isFinite(Number(input.messageCount))
       ? Math.max(0, Math.round(Number(input.messageCount)))
       : fallback.messageCount,
-    speakerBalance: compactText(String(input.speakerBalance || fallback.speakerBalance), 80),
-    limitations: stringList(input.limitations, fallback.limitations, 4),
+    speakerBalance: compactText(String(input.speakerBalance || fallback.speakerBalance), len(80, 200, english)),
+    limitations: stringList(input.limitations, fallback.limitations, 4, english),
   };
 }
 
-function trendPayload(value: unknown, fallback: RelationshipTrend): RelationshipTrend {
-  const input = value as Partial<RelationshipTrend>;
+function trendPayload(value: unknown, fallback: RelationshipTrend, english = false): RelationshipTrend {
+  const input = (value ?? {}) as Partial<RelationshipTrend>;
   return {
-    label: compactText(String(input.label || fallback.label), 12),
-    reason: compactText(String(input.reason || fallback.reason), 160),
+    label: compactText(String(input.label || fallback.label), len(12, 30, english)),
+    reason: compactText(String(input.reason || fallback.reason), len(160, 320, english)),
   };
 }
 
-function replySuggestions(value: unknown, fallback: ActionPlan["nextReplies"], limit: number) {
+function replySuggestions(value: unknown, fallback: ActionPlan["nextReplies"], limit: number, english = false) {
   if (!Array.isArray(value)) return fallback;
   const items = value
     .map((item) => {
       const input = item as Partial<ActionPlan["nextReplies"][number]>;
       return {
-        style: compactText(String(input.style || ""), 20),
-        text: compactText(String(input.text || ""), 160),
+        style: compactText(String(input.style || ""), len(20, 40, english)),
+        text: compactText(String(input.text || ""), len(160, 320, english)),
       };
     })
     .filter((item) => item.style && item.text)
@@ -118,14 +121,14 @@ function replySuggestions(value: unknown, fallback: ActionPlan["nextReplies"], l
   return items.length ? items : fallback;
 }
 
-function conditionalAdvice(value: unknown, fallback: ActionPlan["ifThen"], limit: number) {
+function conditionalAdvice(value: unknown, fallback: ActionPlan["ifThen"], limit: number, english = false) {
   if (!Array.isArray(value)) return fallback;
   const items = value
     .map((item) => {
       const input = item as Partial<ActionPlan["ifThen"][number]>;
       return {
-        scenario: compactText(String(input.scenario || ""), 40),
-        advice: compactText(String(input.advice || ""), 160),
+        scenario: compactText(String(input.scenario || ""), len(40, 120, english)),
+        advice: compactText(String(input.advice || ""), len(160, 320, english)),
       };
     })
     .filter((item) => item.scenario && item.advice)
@@ -133,13 +136,13 @@ function conditionalAdvice(value: unknown, fallback: ActionPlan["ifThen"], limit
   return items.length ? items : fallback;
 }
 
-function actionPlanPayload(value: unknown, fallback: ActionPlan): ActionPlan {
-  const input = value as Partial<ActionPlan>;
+function actionPlanPayload(value: unknown, fallback: ActionPlan, english = false): ActionPlan {
+  const input = (value ?? {}) as Partial<ActionPlan>;
   return {
-    strategy: compactText(String(input.strategy || fallback.strategy), 120),
-    nextReplies: replySuggestions(input.nextReplies, fallback.nextReplies, 4),
-    ifThen: conditionalAdvice(input.ifThen, fallback.ifThen, 4),
-    dontDo: stringList(input.dontDo, fallback.dontDo, 4),
+    strategy: compactText(String(input.strategy || fallback.strategy), len(120, 300, english)),
+    nextReplies: replySuggestions(input.nextReplies, fallback.nextReplies, 4, english),
+    ifThen: conditionalAdvice(input.ifThen, fallback.ifThen, 4, english),
+    dontDo: stringList(input.dontDo, fallback.dontDo, 4, english),
   };
 }
 
@@ -224,10 +227,10 @@ function normalizeReport(value: unknown, mode: AnalysisMode, locale: "zh-CN" | "
       insufficient,
       locale,
     ),
-    relationshipStage: compactText(String(input.relationshipStage || (english ? "Unclear stage" : "关系阶段不明")), 30),
+    relationshipStage: compactText(String(input.relationshipStage || (english ? "Unclear stage" : "关系阶段不明")), len(30, 60, english)),
     summary: compactText(
       String(input.summary || (english ? "There is not enough context for a confident read yet." : "聊天记录信号不足，只能做轻量娱乐判断。")),
-      220,
+      len(220, 600, english),
     ),
     scores: {
       sincerity: clampScore(scores.sincerity, fallbackScore),
@@ -245,12 +248,12 @@ function normalizeReport(value: unknown, mode: AnalysisMode, locale: "zh-CN" | "
         ? clampScore(scores.overInvestmentRisk, fallbackScore)
         : softenRiskScore(scores.overInvestmentRisk, fallbackScore, "normal"),
     },
-    riskTags: stringList(input.riskTags, insufficient ? [english ? "Insufficient context" : "信息不足"] : [english ? "Worth observing" : "需要继续观察"], 5),
-    confidence: confidencePayload(input.confidence, fallbackConfidence),
+    riskTags: stringList(input.riskTags, insufficient ? [english ? "Insufficient context" : "信息不足"] : [english ? "Worth observing" : "需要继续观察"], 5, english),
+    confidence: confidencePayload(input.confidence, fallbackConfidence, english),
     relationshipTrend: trendPayload(input.relationshipTrend, {
       label: insufficient ? (english ? "Not enough data" : "样本不足") : (english ? "Observe" : "继续观察"),
       reason: insufficient ? (english ? "The chat is too short to assess the relationship direction." : "聊天记录太短，无法判断关系走势。") : (english ? "The current signals are not enough for a definite conclusion; watch whether future actions stay consistent." : "当前信号还不足以做绝对判断，建议看后续行动一致性。"),
-    }),
+    }, english),
     redFlags: evidenceList(
       input.redFlags,
       [{ quote: english ? "Not enough chat context" : "聊天记录不足", reason: english ? "There is not enough context for stable evidence." : "缺少足够上下文，无法提取稳定风险证据。", strength: "弱" }],
@@ -265,22 +268,24 @@ function normalizeReport(value: unknown, mode: AnalysisMode, locale: "zh-CN" | "
     ),
     behaviorPattern: compactText(
       String(input.behaviorPattern || (english ? "This fragment is not enough to identify a stable behavior pattern." : "当前片段不足以判断稳定行为模式。")),
-      180,
+      len(180, 500, english),
     ),
     suggestions: stringList(
       input.suggestions,
       english ? ["Add more chat context before drawing a stronger conclusion.", "Watch whether their replies and actions remain consistent."] : ["补充更多聊天上下文后再分析。", "先观察对方是否有稳定回应和实际行动。"],
       4,
+      english,
     ),
     replyExamples: stringList(
       input.replyExamples,
       english ? ["I want to understand how you feel, and I would appreciate a more direct conversation."] : ["我想更清楚地了解你的想法，也希望我们沟通得具体一点。"],
       4,
+      english,
     ),
-    actionPlan: actionPlanPayload(input.actionPlan, fallbackActionPlan),
+    actionPlan: actionPlanPayload(input.actionPlan, fallbackActionPlan, english),
     shareCardText: compactText(
       String(input.shareCardText || (english ? "Love Radar report: not enough context yet. Add more chat to get a clearer read." : "恋爱雷达报告：当前信息不足，建议补充聊天记录后再判断。")),
-      120,
+      len(120, 200, english),
     ),
   };
 }
@@ -388,6 +393,7 @@ Rules:
 8. Include confidence, evidence strength, relationship trend, and an actionable plan with gentle, clear-boundary, and light-check-in reply options.
 9. Use only these English evidence strength values: "Strong", "Medium", or "Weak".
 10. Use an English relationship trend label such as "Warming", "Stable", "Push-pull", "Cooling", "Stalled", "Near no-contact", or "Insufficient data".
+11. Length: summary 2-4 sentences (max 500 characters); behaviorPattern 2-3 sentences (max 420 characters); every reason, advice and strategy 1-2 sentences (max 260 characters); each reply text max 260 characters; evidence quotes max 160 characters; shareCardText one sentence (max 160 characters). Finish every sentence — never stop mid-thought.
 
 Return strict JSON only with exactly this structure:
 {

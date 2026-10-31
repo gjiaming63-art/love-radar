@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { enUS } from "@/lib/i18n/en-US";
 import { parseWechatTranscript } from "@/lib/chat-text-parser";
-import type { AnalysisMode, LoveReport, ParsedChatImageMessage, RoleContext } from "@/types/report";
+import type { AnalysisMode, ParsedChatImageMessage, RoleContext } from "@/types/report";
 
 const maxScreenshots = 4;
 
@@ -31,6 +31,10 @@ export function EnglishAnalyzeForm() {
 
   const isScreenshotConversation = Boolean(parsedMessages?.length);
 
+  useEffect(() => {
+    trackEvent("analyze_page_view");
+  }, []);
+
   const previewUrls = useMemo(() => images.map((file) => URL.createObjectURL(file)), [images]);
   useEffect(() => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)), [previewUrls]);
 
@@ -42,6 +46,7 @@ export function EnglishAnalyzeForm() {
     if (!picked.length) return;
     setError(picked.length > maxScreenshots ? `Only the first ${maxScreenshots} screenshots were added.` : "");
     setImages(picked.slice(0, maxScreenshots));
+    trackEvent("screenshots_selected", String(Math.min(picked.length, maxScreenshots)));
     setText("");
     setParsedMessages(null);
     setSpeakerChoice(null);
@@ -77,6 +82,7 @@ export function EnglishAnalyzeForm() {
       });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "";
+      trackEvent("analyze_failed", "screenshot_read");
       setError(
         /expected pattern|string did not match|pattern/i.test(message)
           ? "Your browser could not prepare this screenshot for upload. Please choose a JPG/PNG screenshot from Photos, or take a fresh screenshot and try again."
@@ -122,18 +128,14 @@ export function EnglishAnalyzeForm() {
           roleContext,
         }),
       });
-      const payload = (await response.json()) as { report?: LoveReport; error?: string };
-      if (!response.ok || !payload.report) throw new Error(payload.error || "Analysis failed. Please try again.");
-      const save = await fetch("/api/reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report: payload.report, locale: "en-US", inputType: currentInputType }),
-      });
-      const saved = (await save.json()) as { report?: { id: string }; error?: string };
-      if (!save.ok || !saved.report) throw new Error(saved.error || "Could not save the report.");
-      void fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName: "english_report_generated", reportId: saved.report.id, locale: "en-US" }) });
-      router.push(`/en/report/${saved.report.id}`);
+      const payload = (await response.json().catch(() => ({}))) as { report?: { id: string; deleteToken?: string }; error?: string };
+      if (!response.ok || !payload.report?.id) throw new Error(payload.error || "Analysis failed. Please try again.");
+      if (payload.report.deleteToken) {
+        try { localStorage.setItem(`love-radar-delete:${payload.report.id}`, payload.report.deleteToken); } catch { /* storage unavailable */ }
+      }
+      router.push(`/en/report/${payload.report.id}`);
     } catch (cause) {
+      trackEvent("analyze_failed", "analyze_request");
       setStage("idle");
       setError(cause instanceof Error ? cause.message : "Analysis failed. Please try again.");
     } finally {
@@ -243,9 +245,22 @@ export function EnglishAnalyzeForm() {
         <option value="comprehensive">Overall analysis</option><option value="sincerity">How sincere are they?</option><option value="fishing">Are they keeping options open?</option><option value="cold_violence">Could this be silent treatment?</option><option value="worth_investing">Is this worth more investment?</option>
       </select>
       {error ? <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm leading-6 text-red-200">{error}</p> : null}
-      <Button type="button" size="lg" className={`w-full ${(images.length || text.trim()) && stage === "idle" && !loading ? "lr-breathe" : ""}`} onClick={() => (images.length ? analyzeScreenshots() : analyze())} disabled={loading || stage !== "idle"}>{loading || stage !== "idle" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading || stage !== "idle" ? enUS.analyzing : images.length ? "Analyze screenshots" : enUS.generate}</Button>
+      <Button type="button" size="lg" className={`w-full ${(images.length || text.trim()) && stage === "idle" && !loading ? "lr-breathe" : ""}`} onClick={() => {
+          trackEvent("analyze_submit", images.length ? "image" : "text");
+          void (images.length ? analyzeScreenshots() : analyze());
+        }} disabled={loading || stage !== "idle"}>{loading || stage !== "idle" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading || stage !== "idle" ? enUS.analyzing : images.length ? "Analyze screenshots" : enUS.generate}</Button>
     </section>
   );
+}
+
+function trackEvent(eventName: "analyze_page_view" | "screenshots_selected" | "analyze_submit" | "analyze_failed", source?: string) {
+  try {
+    const payload = JSON.stringify({ eventName, source, locale: "en-US" });
+    if (navigator.sendBeacon?.("/api/track", new Blob([payload], { type: "application/json" }))) return;
+    void fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(() => undefined);
+  } catch {
+    // tracking must never break the form
+  }
 }
 
 async function uploadScreenshotsForParsing(files: File[]) {

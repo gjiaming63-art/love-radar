@@ -3,7 +3,7 @@ import { getPool } from "@/lib/reports";
 
 const memory = new Map<string, { date: string; count: number }>();
 
-export async function consumeTextQuota(clientKey: string, locale: "zh-CN" | "en-US", limit: number) {
+export async function consumeTextQuota(clientKey: string, locale: string, limit: number) {
   const date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const hash = createHash("sha256").update(`${process.env.TEXT_USAGE_SALT || process.env.DATABASE_URL || "love-radar-text"}:${clientKey}`).digest("hex");
   const db = getPool();
@@ -32,4 +32,22 @@ export async function consumeTextQuota(clientKey: string, locale: "zh-CN" | "en-
   `, [date, hash, locale, limit]);
   const count = Number(result.rows[0]?.count ?? 0);
   return { ok: count > 0, remaining: Math.max(0, limit - count), limit };
+}
+
+/** Give back one use when the analysis itself failed (so users aren't charged for our errors). */
+export async function refundTextQuota(clientKey: string, locale: string) {
+  const date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const hash = createHash("sha256").update(`${process.env.TEXT_USAGE_SALT || process.env.DATABASE_URL || "love-radar-text"}:${clientKey}`).digest("hex");
+  const db = getPool();
+  if (!db) {
+    const key = `${locale}:${hash}`;
+    const current = memory.get(key);
+    if (current?.date === date && current.count > 0) memory.set(key, { date, count: current.count - 1 });
+    return;
+  }
+  await db.query(
+    `UPDATE text_usage SET count = GREATEST(count - 1, 0), updated_at = NOW()
+     WHERE usage_date = $1 AND client_hash = $2 AND locale = $3`,
+    [date, hash, locale],
+  );
 }

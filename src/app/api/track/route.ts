@@ -26,6 +26,10 @@ export async function POST(request: Request) {
       "personality_chat_analysis_click",
       "checkout_click",
       "payment_return",
+      "analyze_page_view",
+      "screenshots_selected",
+      "analyze_submit",
+      "analyze_failed",
     ];
     if (!allowed.includes(String(body.eventName))) {
       return NextResponse.json({ error: "Unsupported event." }, { status: 400 });

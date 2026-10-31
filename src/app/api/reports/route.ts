@@ -1,34 +1,7 @@
 import { NextResponse } from "next/server";
-import { ensureAuthSchema, getCurrentUser } from "@/lib/auth";
-import { saveReport } from "@/lib/reports";
-import type { LoveReport } from "@/types/report";
 
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as { report?: LoveReport; locale?: "zh-CN" | "en-US"; inputType?: "text" | "image" };
-    if (
-      typeof body.report?.overallScore !== "number" ||
-      !body.report.summary ||
-      !body.report.scores
-    ) {
-      return NextResponse.json({ error: "报告数据不完整" }, { status: 400 });
-    }
-
-    await ensureAuthSchema();
-    const user = await getCurrentUser();
-    const isTestAccount = Boolean(user?.isTestAccount);
-    const saved = await saveReport({
-      ...body.report,
-      // Paid status is only ever set server-side (payment webhook / redeem code), never by the client.
-      isPaid: isTestAccount,
-      paidAt: isTestAccount ? new Date().toISOString() : null,
-      locale: body.locale ?? body.report.locale ?? "zh-CN",
-      inputType: body.inputType ?? body.report.inputType ?? "text",
-      analysisLanguage: body.locale ?? body.report.analysisLanguage ?? "zh-CN",
-    }, user?.id);
-    return NextResponse.json({ report: saved });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "保存报告失败" }, { status: 500 });
-  }
+// Reports are now created only by /api/analyze on the server, so the full report (including paid
+// sections) never passes through the browser, and nobody can save hand-written reports on our domain.
+export async function POST() {
+  return NextResponse.json({ error: "This endpoint has moved. Please refresh the page and try again." }, { status: 410 });
 }

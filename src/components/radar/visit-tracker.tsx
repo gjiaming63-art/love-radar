@@ -11,7 +11,8 @@ export function VisitTracker() {
     sessionStorage.setItem(key, String(Date.now()));
 
     const source = new URLSearchParams(window.location.search).get("utm_source") || document.referrer || "direct";
-    const payload = JSON.stringify({ eventName: "visit", source, path });
+    const locale = path === "/en" || path.startsWith("/en/") ? "en-US" : "zh-CN";
+    const payload = JSON.stringify({ eventName: "visit", source, path, locale });
     if (navigator.sendBeacon) {
       navigator.sendBeacon("/api/track", new Blob([payload], { type: "application/json" }));
       return;
