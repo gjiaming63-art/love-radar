@@ -143,18 +143,33 @@ export function EnglishAnalyzeForm() {
   }
 
   return (
-    <section className="space-y-5 rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/30">
+    <section className="lr-reveal space-y-5 rounded-[28px] border border-white/10 bg-[#0d0a14]/80 p-5 shadow-2xl shadow-black/40 backdrop-blur">
       <div>
-        <div className="flex items-center gap-2 text-primary"><Sparkles className="h-5 w-5" /><span className="text-xs uppercase tracking-[0.22em]">Love Radar AI</span></div>
+        <div className="flex items-center gap-2 text-primary">
+          <span aria-hidden="true" className="relative flex h-2 w-2">
+            <span className="lr-ping absolute inset-0 rounded-full bg-primary/70" />
+            <span className="relative h-2 w-2 rounded-full bg-primary" />
+          </span>
+          <Sparkles className="h-4 w-4" />
+          <span className="text-xs uppercase tracking-[0.22em]">Love Radar AI</span>
+        </div>
         <h1 className="mt-3 text-3xl font-semibold text-white">{enUS.analyzeTitle}</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{enUS.analyzeHint}</p>
+        <ol className="mt-4 grid grid-cols-3 gap-2 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+          {["Add screenshots", "AI reads the signals", "Get your report"].map((step, index) => (
+            <li key={step} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-[10px] font-semibold text-primary">{index + 1}</span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
       </div>
       <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm leading-6 text-muted-foreground">{enUS.privacy}</div>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={stage !== "idle"}
-        className="flex w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-accent/50 bg-accent/10 px-5 py-8 text-center text-white transition hover:bg-accent/15 disabled:opacity-60"
+        className="lr-hover-lift flex w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-accent/50 bg-accent/10 px-5 py-8 text-center text-white transition hover:bg-accent/15 disabled:opacity-60"
       >
         <ImagePlus className="h-8 w-8 text-accent" />
         <span className="mt-3 text-lg font-semibold">{images.length ? "Choose different screenshots" : "Upload chat screenshots"}</span>
@@ -228,7 +243,7 @@ export function EnglishAnalyzeForm() {
         <option value="comprehensive">Overall analysis</option><option value="sincerity">How sincere are they?</option><option value="fishing">Are they keeping options open?</option><option value="cold_violence">Could this be silent treatment?</option><option value="worth_investing">Is this worth more investment?</option>
       </select>
       {error ? <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm leading-6 text-red-200">{error}</p> : null}
-      <Button type="button" size="lg" className="w-full" onClick={() => (images.length ? analyzeScreenshots() : analyze())} disabled={loading || stage !== "idle"}>{loading || stage !== "idle" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading || stage !== "idle" ? enUS.analyzing : images.length ? "Analyze screenshots" : enUS.generate}</Button>
+      <Button type="button" size="lg" className={`w-full ${(images.length || text.trim()) && stage === "idle" && !loading ? "lr-breathe" : ""}`} onClick={() => (images.length ? analyzeScreenshots() : analyze())} disabled={loading || stage !== "idle"}>{loading || stage !== "idle" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading || stage !== "idle" ? enUS.analyzing : images.length ? "Analyze screenshots" : enUS.generate}</Button>
     </section>
   );
 }

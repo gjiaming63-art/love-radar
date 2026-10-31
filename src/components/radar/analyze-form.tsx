@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardPaste,
+  Image as ImageIcon,
   Loader2,
   LockKeyhole,
   Radar,
@@ -321,6 +322,35 @@ export function AnalyzeForm() {
         </p>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <a
+          href="#paste-section"
+          className="lr-hover-lift flex items-start gap-3 rounded-lg border border-primary/35 bg-primary/10 p-4 transition hover:bg-primary/15"
+        >
+          <ClipboardPaste className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              粘贴文字
+              <span className="rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-normal text-primary">最准</span>
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">微信多选消息后复制，直接粘贴即可</span>
+          </span>
+        </a>
+        <a
+          href="#screenshot-section"
+          className="lr-hover-lift flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
+        >
+          <ImageIcon className="mt-0.5 h-5 w-5 shrink-0 text-violet-300" />
+          <span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              上传截图
+              <span className="rounded-full border border-violet-400/30 px-2 py-0.5 text-[10px] font-normal text-violet-200">最省事</span>
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">自动识别聊天气泡，不用手动整理</span>
+          </span>
+        </a>
+      </div>
+
       <div className="sticky top-0 z-20 rounded-lg border border-primary/40 bg-primary/15 p-3 shadow-[0_12px_38px_rgb(0_0_0/0.28)] backdrop-blur">
         <div className="flex gap-3">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -362,7 +392,7 @@ export function AnalyzeForm() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="paste-section" className="scroll-mt-28">
         <CardHeader>
           <CardTitle>聊天记录文本</CardTitle>
         </CardHeader>
@@ -425,7 +455,7 @@ export function AnalyzeForm() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/80 bg-card/75">
+      <Card id="screenshot-section" className="scroll-mt-28 border-border/80 bg-card/75">
         <CardHeader>
           <CardTitle>聊天截图</CardTitle>
         </CardHeader>

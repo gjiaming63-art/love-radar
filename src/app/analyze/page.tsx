@@ -16,8 +16,12 @@ export const metadata = createPageMetadata({
 
 export default function AnalyzePage() {
   return (
-    <main className="min-h-svh px-4 py-5">
-      <div className="mx-auto w-full max-w-3xl">
+    <main className="relative min-h-svh overflow-hidden px-4 py-5">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="signal-grid absolute inset-0 opacity-30" />
+        <div className="lr-landing-glow absolute inset-0 opacity-70" />
+      </div>
+      <div className="relative mx-auto w-full max-w-3xl">
         <Link
           href="/"
           prefetch={false}

@@ -1,6 +1,11 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
+  Activity,
   ArrowRight,
+  HeartPulse,
+  MessagesSquare,
+  Signpost,
   BrainCircuit,
   LogIn,
   MessageSquareText,
@@ -39,6 +44,15 @@ export const metadata = createPageMetadata({
     "en-US": "/en",
   },
 });
+
+const signalCards: Array<{ icon: LucideIcon; title: string; desc: string }> = [
+  { icon: Activity, title: "关系状态", desc: "暧昧、热恋还是在降温" },
+  { icon: HeartPulse, title: "情绪信号", desc: "投入度、敷衍和忽冷忽热" },
+  { icon: MessagesSquare, title: "沟通模式", desc: "谁主动、谁回避、谁在拉扯" },
+  { icon: Signpost, title: "下一步建议", desc: "该怎么回、要不要继续" },
+];
+
+const delay = (ms: number) => ({ "--lr-delay": `${ms}ms` }) as CSSProperties;
 
 const chips = ["渣感指数", "上头指数", "养鱼概率", "冷暴力信号", "真诚度扫描"];
 
@@ -82,7 +96,8 @@ export default async function Home() {
 
   return (
     <main className="relative min-h-svh overflow-hidden px-4 py-5 sm:px-6">
-      <div className="signal-grid pointer-events-none absolute inset-0 opacity-60" />
+      <div className="signal-grid pointer-events-none absolute inset-0 opacity-60" aria-hidden="true" />
+      <div className="lr-landing-glow pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-primary/10 blur-3xl" />
 
       <section className="relative mx-auto flex min-h-[calc(100svh-2.5rem)] w-full max-w-6xl flex-col">
@@ -109,20 +124,24 @@ export default async function Home() {
             </div>
 
             <div>
-              <h1 className="text-balance text-5xl font-semibold leading-[0.96] tracking-normal sm:text-6xl md:text-7xl">
-                恋爱雷达
+              <h1 className="lr-reveal text-balance text-5xl font-semibold leading-[1.05] tracking-normal sm:text-6xl" style={delay(60)}>
+                看懂聊天里的<span className="lr-text-glow">关系信号</span>
               </h1>
-              <p className="mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground">
-                聊天不会骗人。
-                <br />
-                让 AI 帮你发现那些被忽略的信号。
+              <p className="lr-reveal mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground" style={delay(140)}>
+                聊天不会骗人。粘贴文字或上传截图，AI 帮你看清对方的投入度、暧昧信号和沟通模式，再告诉你下一步怎么做。
               </p>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="lr-reveal mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={delay(220)}>
                 <Link href="/analyze" prefetch={false} className="sm:w-auto">
-                  <Button size="lg" className="w-full sm:w-auto">
-                    开始分析
+                  <Button size="lg" className="lr-breathe w-full sm:w-auto">
+                    开始分析我的聊天记录
                     <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/personality" prefetch={false} className="sm:w-auto">
+                  <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                    <BrainCircuit className="h-4 w-4 text-violet-300" />
+                    先做恋爱人格测试
                   </Button>
                 </Link>
                 <Link href={accountHref} prefetch={false} className="sm:w-auto">
@@ -158,6 +177,19 @@ export default async function Home() {
               </Link>
             </div>
 
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {signalCards.map((card, index) => (
+                <div
+                  key={card.title}
+                  className="lr-reveal lr-hover-lift rounded-xl border border-white/10 bg-white/[0.04] p-3"
+                  style={delay(320 + index * 70)}
+                >
+                  <card.icon className="h-4 w-4 text-primary" />
+                  <p className="mt-2 text-sm font-semibold text-white">{card.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{card.desc}</p>
+                </div>
+              ))}
+            </div>
             <div className="grid gap-3 sm:grid-cols-3 lg:hidden">
               {featureLinks.map((item) => (
                 <FeatureCard key={item.href} {...item} compact />
