@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, LockKeyhole, Radar, Share2 } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Footprints, LockKeyhole, MessageSquareQuote, Share2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { RadarChart } from "@/components/radar/radar-chart";
+import {
+  AnchorNav,
+  DetailFold,
+  EvidenceBubble,
+  NextStepGrid,
+  SectionHeading,
+  SignalGrid,
+  VerdictHero,
+} from "@/components/radar/report-visuals";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getChatSpotlights, getRelationshipMeters, getReportInsight } from "@/lib/report-insights";
 import type { LoveReport } from "@/types/report";
 
 export function EnglishReportView({
@@ -68,31 +80,119 @@ export function EnglishReportView({
     if (response.ok) setMessage("Thanks. We will let you know when premium analysis is available.");
     else setMessage("Sign in first so we can notify you.");
   }
+  const insight = getReportInsight(report, "en-US");
+  const meters = getRelationshipMeters(report, "en-US");
+  const spotlights = getChatSpotlights(report, "en-US");
+  const plan = report.actionPlan;
+  const firstReply = plan.nextReplies[0]?.text || report.replyExamples[0];
+  const lockedNote = (text: string) => (report.isPaid ? null : <p className="text-xs text-muted-foreground">{text}</p>);
+
   return (
-    <main className="min-h-svh px-4 py-5 text-white"><div className="mx-auto w-full max-w-3xl space-y-5">
-      <div className="flex items-center justify-between"><Link href="/en" prefetch={false} className="inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" />Love Radar AI</Link><Link href="/en/me" prefetch={false} className="text-sm text-primary">My account</Link></div>
-      <section className="rounded-[28px] border border-primary/25 bg-primary/10 p-5"><div className="flex items-center gap-2 text-primary"><Radar className="h-5 w-5" /><span className="text-xs uppercase tracking-[0.2em]">Love Radar report</span></div><div className="mt-5 flex items-end justify-between gap-4"><div><p className="text-sm text-muted-foreground">Overall score</p><p className="mt-1 font-mono text-6xl font-semibold text-white">{report.overallScore}</p></div><div className="text-right"><p className="text-sm text-muted-foreground">{report.riskLevel}</p><p className="mt-1 text-sm text-primary">{report.relationshipStage}</p></div></div><p className="mt-5 text-base leading-7 text-white">{report.summary}</p><div className="mt-4 flex flex-wrap gap-2">{report.riskTags.slice(0, 5).map((tag) => <span key={tag} className="rounded-full border border-primary/30 bg-black/20 px-3 py-1 text-xs text-primary">{tag}</span>)}</div></section>
-      <section className="grid gap-3 sm:grid-cols-2">{Object.entries(report.scores).map(([key,value]) => <div key={key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><p className="text-xs capitalize text-muted-foreground">{key.replace(/([A-Z])/g," $1")}</p><p className="mt-2 text-3xl font-semibold text-white">{value}</p></div>)}</section>
-      <p className="-mt-2 text-xs text-muted-foreground">Scores are AI estimates based only on this conversation, for entertainment and self-reflection. They are not facts about the other person.</p>
-      <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5"><h2 className="text-xl font-semibold">Behavior summary</h2><p className="mt-3 leading-7 text-muted-foreground">{report.behaviorPattern}</p><h3 className="mt-6 text-sm font-semibold text-primary">Red flags</h3><div className="mt-3 space-y-3">{report.redFlags.map((item,index)=><div key={`${item.quote}-${index}`} className="rounded-2xl border border-red-300/15 bg-red-400/5 p-4"><p className="text-white">“{item.quote}”</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.reason}</p></div>)}</div><h3 className="mt-6 text-sm font-semibold text-accent">Green flags</h3><div className="mt-3 space-y-3">{report.greenFlags.map((item,index)=><div key={`${item.quote}-${index}`} className="rounded-2xl border border-accent/15 bg-accent/5 p-4"><p className="text-white">“{item.quote}”</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.reason}</p></div>)}</div></section>
-      {report.isPaid ? (
-        <section className="rounded-[28px] border border-accent/30 bg-accent/5 p-5">
-          <div className="flex items-center gap-2 text-accent"><CheckCircle2 className="h-5 w-5" /><span className="text-xs uppercase tracking-[0.2em]">Full report unlocked</span></div>
-          <h2 className="mt-3 text-xl font-semibold">Your game plan</h2>
-          <p className="mt-2 leading-7 text-muted-foreground">{report.actionPlan.strategy}</p>
-          {report.actionPlan.nextReplies.length ? <><h3 className="mt-6 text-sm font-semibold text-primary">What to text next</h3><div className="mt-3 space-y-3">{report.actionPlan.nextReplies.map((item, index) => <div key={`${item.style}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><p className="text-xs text-muted-foreground">{item.style}</p><p className="mt-1 text-white">{item.text}</p></div>)}</div></> : null}
-          {report.replyExamples.length ? <><h3 className="mt-6 text-sm font-semibold text-primary">More reply ideas</h3><ul className="mt-3 space-y-2">{report.replyExamples.map((text, index) => <li key={index} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-white">{text}</li>)}</ul></> : null}
-          {report.actionPlan.ifThen.length ? <><h3 className="mt-6 text-sm font-semibold text-primary">If they… then you…</h3><div className="mt-3 space-y-3">{report.actionPlan.ifThen.map((item, index) => <div key={index} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><p className="text-sm text-white">{item.scenario}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{item.advice}</p></div>)}</div></> : null}
-          {report.actionPlan.dontDo.length ? <><h3 className="mt-6 text-sm font-semibold text-red-300">Don&apos;t do this</h3><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">{report.actionPlan.dontDo.map((text, index) => <li key={index}>{text}</li>)}</ul></> : null}
-          {report.suggestions.length ? <><h3 className="mt-6 text-sm font-semibold text-accent">Advice</h3><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">{report.suggestions.map((text, index) => <li key={index}>{text}</li>)}</ul></> : null}
-        </section>
-      ) : waitingForPayment ? (
+    <main className="min-h-svh px-4 pb-8 pt-3 text-white">
+      <div className="mx-auto w-full max-w-5xl">
+        <AnchorNav
+          items={[
+            { id: "verdict", label: "Verdict" },
+            { id: "signals", label: "Signals" },
+            { id: "evidence", label: "Evidence" },
+            { id: "next", label: "Next steps" },
+          ]}
+        />
+        <div className="mb-4 flex items-center justify-between">
+          <Link href="/en" prefetch={false} className="inline-flex min-h-9 items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" />Love Radar AI</Link>
+          <Link href="/en/me" prefetch={false} className="min-h-9 py-2 text-sm text-primary">My account</Link>
+        </div>
+
+        <div className="space-y-7">
+          <VerdictHero
+            badges={
+              <>
+                <Badge className="border-primary/30 bg-primary/10 text-primary">Love Radar report</Badge>
+                <Badge>{report.riskLevel}</Badge>
+                {report.isPaid ? (
+                  <Badge className="border-accent/30 bg-accent/10 text-accent"><CheckCircle2 className="mr-1 h-3 w-3" />Full report</Badge>
+                ) : null}
+              </>
+            }
+            score={report.overallScore}
+            scoreLabel="Overall score"
+            facts={[
+              { label: "Stage", value: report.relationshipStage },
+              { label: "Type", value: insight.type },
+              { label: "Trend", value: report.relationshipTrend.label },
+            ]}
+            verdict={insight.verdict}
+            keywords={report.riskTags.slice(0, 5)}
+            radar={
+              <RadarChart
+                scores={report.scores}
+                className="max-w-64"
+                labels={{
+                  sincerity: "Sincere",
+                  avoidance: "Avoidant",
+                  coldViolence: "Cold",
+                  breadcrumbing: "Breadcrumb",
+                  manipulation: "Push-pull",
+                  overInvestmentRisk: "Over-invested",
+                }}
+              />
+            }
+          />
+
+          <section className="space-y-3">
+            <SectionHeading id="signals" eyebrow="Signals" title="Relationship signals" />
+            <SignalGrid meters={meters} />
+            <p className="text-xs text-muted-foreground">Scores are AI estimates based only on this conversation, for entertainment and self-reflection. They are not facts about the other person.</p>
+          </section>
+
+          <section className="space-y-3">
+            <SectionHeading id="evidence" eyebrow="Evidence" title="Key moments from the chat" />
+            <div className="grid gap-3 lg:grid-cols-3">
+              {spotlights.map((item) => (
+                <EvidenceBubble key={`${item.title}-${item.quote}`} tone={item.tone} title={item.title} quote={item.quote} reason={item.note} moreLabel="Why" />
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <SectionHeading id="next" eyebrow="Next" title="What to do next" />
+            <NextStepGrid
+              items={[
+                {
+                  tone: "safe",
+                  title: "Do this now",
+                  icon: <Footprints className="h-4 w-4" />,
+                  body: plan.strategy || report.suggestions[0] || "Watch what they actually do next.",
+                },
+                {
+                  tone: "risk",
+                  title: "Don't do this",
+                  icon: <Ban className="h-4 w-4" />,
+                  body: plan.dontDo[0] || "Don't double-text or push them for an answer right now.",
+                },
+                {
+                  tone: "neutral",
+                  title: "What to text back",
+                  icon: <MessageSquareQuote className="h-4 w-4" />,
+                  body:
+                    report.isPaid && firstReply ? (
+                      <>&ldquo;{firstReply}&rdquo;</>
+                    ) : (
+                      <a href="#unlock" className="flex items-start gap-2 text-muted-foreground">
+                        <LockKeyhole className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                        Unlock the full report for word-for-word replies written for this chat.
+                      </a>
+                    ),
+                },
+              ]}
+            />
+            {report.isPaid ? null : waitingForPayment ? (
         <section className="rounded-[28px] border border-primary/30 bg-primary/10 p-5">
           <h2 className="text-xl font-semibold">Confirming your payment…</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">This usually takes a few seconds. The full report will appear here automatically.</p>
         </section>
       ) : (
-        <section className="rounded-[28px] border border-primary/30 bg-gradient-to-br from-primary/15 to-accent/10 p-5">
+        <section id="unlock" className="scroll-mt-16 rounded-[28px] border border-primary/30 bg-gradient-to-br from-primary/15 to-accent/10 p-5">
           <LockKeyhole className="h-5 w-5 text-primary" />
           <h2 className="mt-3 text-xl font-semibold">See exactly what to text next</h2>
           <ul className="mt-3 space-y-1 text-sm leading-6 text-muted-foreground">
@@ -113,8 +213,60 @@ export function EnglishReportView({
           {returnedFromPayment && !report.isPaid ? <p className="mt-3 text-sm text-accent">Paid but still locked? Refresh in a minute, or contact us with your order email.</p> : null}
           {message ? <p className="mt-3 text-sm text-accent">{message}</p> : null}
         </section>
-      )}
-      <div className="flex items-center justify-between text-xs text-muted-foreground"><span>AI-generated for entertainment and communication reference only.</span><Share2 className="h-4 w-4" /></div>
-    </div></main>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <SectionHeading id="details" eyebrow="Details" title="Full analysis" />
+            <DetailFold title="Full behavior pattern">
+              <p className="text-sm leading-7 text-muted-foreground">{report.behaviorPattern}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{report.summary}</p>
+            </DetailFold>
+            <DetailFold title="All red flags" count={report.redFlags.length}>
+              {report.redFlags.length ? report.redFlags.map((item, index) => (
+                <EvidenceBubble key={`${item.quote}-${index}`} tone="risk" quote={item.quote} reason={item.reason} moreLabel="Why" />
+              )) : <p className="text-sm text-muted-foreground">No clear red flags in this chat.</p>}
+              {lockedNote("Free report shows the top red flags. Unlock to see all of them.")}
+            </DetailFold>
+            <DetailFold title="All green flags" count={report.greenFlags.length}>
+              {report.greenFlags.length ? report.greenFlags.map((item, index) => (
+                <EvidenceBubble key={`${item.quote}-${index}`} tone="safe" quote={item.quote} reason={item.reason} moreLabel="Why" />
+              )) : <p className="text-sm text-muted-foreground">No consistent green flags yet.</p>}
+              {lockedNote("Free report shows the top green flags. Unlock to see all of them.")}
+            </DetailFold>
+            <DetailFold title="Full advice" count={report.suggestions.length}>
+              {report.suggestions.map((text, index) => <p key={index} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm leading-6">{text}</p>)}
+              {plan.ifThen.map((item, index) => (
+                <div key={index} className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <p className="text-sm text-white">{item.scenario}</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.advice}</p>
+                </div>
+              ))}
+              {plan.dontDo.length > 1 ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">{plan.dontDo.map((text, index) => <li key={index}>{text}</li>)}</ul>
+              ) : null}
+              {lockedNote("Unlock for the complete if-then game plan.")}
+            </DetailFold>
+            <DetailFold title="Full reply templates">
+              {report.isPaid ? (
+                <>
+                  {plan.nextReplies.map((item, index) => (
+                    <div key={`${item.style}-${index}`} className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                      <p className="text-xs text-muted-foreground">{item.style}</p>
+                      <p className="mt-1 text-sm text-white">{item.text}</p>
+                    </div>
+                  ))}
+                  {report.replyExamples.map((text, index) => <p key={index} className="rounded-xl border border-accent/25 bg-accent/10 p-3 text-sm leading-6">{text}</p>)}
+                </>
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">Unlock the full report to see reply templates written for this conversation.</p>
+              )}
+            </DetailFold>
+          </section>
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground"><span>AI-generated for entertainment and communication reference only.</span><Share2 className="h-4 w-4" /></div>
+        </div>
+      </div>
+    </main>
   );
 }

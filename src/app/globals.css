@@ -113,7 +113,33 @@ textarea {
   }
 }
 
+/* Report page: radar sweep + orbit decorations (decorative only) */
+.radar-sweep {
+  background: conic-gradient(from 0deg, transparent 0deg, rgb(244 63 94 / 0.22) 40deg, transparent 70deg);
+  animation: radar-sweep 5s linear infinite;
+}
+
+.radar-orbit {
+  background:
+    radial-gradient(circle, transparent 46%, rgb(255 255 255 / 0.06) 46.5%, transparent 47.5%),
+    radial-gradient(circle, transparent 66%, rgb(255 255 255 / 0.05) 66.5%, transparent 67.5%),
+    radial-gradient(circle, transparent 86%, rgb(167 139 250 / 0.08) 86.5%, transparent 87.5%);
+}
+
+.report-glow {
+  background:
+    radial-gradient(60% 50% at 20% 0%, rgb(244 63 94 / 0.16), transparent 70%),
+    radial-gradient(50% 45% at 90% 20%, rgb(139 92 246 / 0.14), transparent 70%);
+}
+
+@keyframes radar-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .radar-sweep,
   .scan-line,
   .personality-signal-orbit {
     animation: none;

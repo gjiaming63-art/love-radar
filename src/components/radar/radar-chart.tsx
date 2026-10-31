@@ -15,13 +15,22 @@ function point(index: number, value: number, radius = 92) {
   return [120 + Math.cos(angle) * scaled, 120 + Math.sin(angle) * scaled] as const;
 }
 
-export function RadarChart({ scores }: { scores: DeepSeekScores }) {
+export function RadarChart({
+  scores,
+  labels,
+  className = "max-w-72",
+}: {
+  scores: DeepSeekScores;
+  /** Optional per-axis labels (e.g. English). Defaults to the Chinese labels. */
+  labels?: Partial<Record<keyof DeepSeekScores, string>>;
+  className?: string;
+}) {
   const polygon = axes
     .map((axis, index) => point(index, axis.invert ? 100 - scores[axis.key] : scores[axis.key]).join(","))
     .join(" ");
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-72">
+    <div className={`relative mx-auto aspect-square w-full ${className}`}>
       <svg viewBox="0 0 240 240" className="h-full w-full overflow-visible">
         {[92, 68, 44, 20].map((radius) => (
           <polygon
@@ -44,7 +53,7 @@ export function RadarChart({ scores }: { scores: DeepSeekScores }) {
                 dominantBaseline="middle"
                 className="fill-muted-foreground text-[10px]"
               >
-                {axis.label}
+                {labels?.[axis.key] ?? axis.label}
               </text>
             </g>
           );

@@ -4,15 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Gauge,
+  Ban,
+  Footprints,
   Loader2,
   LockKeyhole,
-  MessageCircleWarning,
   MessageSquareQuote,
   Orbit,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
 } from "lucide-react";
 import { AstrologyRadarChart } from "@/components/radar/astrology-radar-chart";
@@ -22,8 +21,16 @@ import { SaveReportButton } from "@/components/radar/save-report-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AnchorNav,
+  DetailFold,
+  EvidenceBubble,
+  NextStepGrid,
+  SectionHeading,
+  SignalGrid,
+  VerdictHero,
+} from "@/components/radar/report-visuals";
 import { getChatSpotlights, getRelationshipMeters, getReportInsight } from "@/lib/report-insights";
-import type { ChatSpotlight, RelationshipMeter } from "@/lib/report-insights";
 import type { ChatAstrologyLayer } from "@/types/chat-astrology";
 import type { LoveReport } from "@/types/report";
 import { scoreLabels } from "@/types/report";
@@ -49,90 +56,191 @@ export function ReportView({
     localStorage.setItem("love-radar-last-report-path", `/report/${initialReport.id}`);
   }, [initialReport.id]);
 
+  const plan = report.actionPlan;
+  const firstReply = plan.nextReplies[0]?.text || report.replyExamples[0];
+
   return (
-    <main className="min-h-svh px-4 py-5">
+    <main className="min-h-svh px-4 pb-8 pt-3">
       <div className="mx-auto w-full max-w-5xl">
+        <AnchorNav
+          items={[
+            { id: "verdict", label: "结论" },
+            { id: "signals", label: "信号" },
+            { id: "evidence", label: "证据" },
+            { id: "next", label: "下一步" },
+          ]}
+        />
         <Link
           href="/analyze"
           prefetch={false}
-          className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
+          className="mb-4 inline-flex min-h-9 items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           重新分析
         </Link>
 
-        <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
-          <section className="space-y-5">
-            <Card className="overflow-hidden">
-              <CardContent className="relative p-5">
-                <div className="signal-grid pointer-events-none absolute inset-0 opacity-40" />
-                <div className="relative">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge className="border-primary/30 bg-primary/10 text-primary">恋爱雷达报告</Badge>
-                    <Badge>{report.riskLevel}</Badge>
-                    <Badge>{report.relationshipStage}</Badge>
-                    {locked ? <Badge className="border-accent/25 bg-accent/10 text-accent">免费版</Badge> : null}
-                  </div>
+        <div className="space-y-7">
+          <VerdictHero
+            badges={
+              <>
+                <Badge className="border-primary/30 bg-primary/10 text-primary">恋爱雷达报告</Badge>
+                <Badge>{report.riskLevel}</Badge>
+                {locked ? <Badge className="border-accent/25 bg-accent/10 text-accent">免费版</Badge> : null}
+              </>
+            }
+            score={report.overallScore}
+            scoreLabel="综合评分"
+            facts={[
+              { label: "关系阶段", value: report.relationshipStage },
+              { label: "关系类型", value: insight.type },
+              { label: "当前走势", value: report.relationshipTrend.label },
+            ]}
+            verdict={insight.verdict}
+            keywords={visibleTags.slice(0, 5)}
+            radar={<RadarChart scores={report.scores} className="max-w-64" />}
+          />
 
-                  <div className="mt-5 rounded-lg border border-primary/30 bg-primary/10 p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="border-primary/35 bg-primary/15 text-primary">{insight.type}</Badge>
-                      <span className="text-xs text-muted-foreground">{insight.signal}</span>
-                    </div>
-                    <h1 className="mt-3 text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
-                      {insight.title}
-                    </h1>
-                    <p className="mt-3 text-pretty text-base leading-7 text-foreground">{insight.verdict}</p>
-                  </div>
+          <section className="space-y-3">
+            <SectionHeading id="signals" eyebrow="Signals" title="关系信号" />
+            <SignalGrid meters={meters} />
+          </section>
 
-                  <div className="mt-5 flex items-end justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">综合评分</p>
-                      <div className="mt-2 font-mono text-7xl font-semibold leading-none text-primary">
-                        {report.overallScore}
-                      </div>
-                    </div>
-                    <RadarChart scores={report.scores} />
-                  </div>
-                  <p className="mt-5 text-pretty text-base leading-7 text-muted-foreground">{report.summary}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {visibleTags.map((tag) => (
-                      <Badge key={tag} className="border-primary/25 bg-primary/10 text-primary">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <section className="space-y-3">
+            <SectionHeading id="evidence" eyebrow="Evidence" title="聊天里的关键证据" />
+            <div className="grid gap-3 lg:grid-cols-3">
+              {spotlights.map((item) => (
+                <EvidenceBubble
+                  key={`${item.title}-${item.quote}`}
+                  tone={item.tone}
+                  title={item.title}
+                  quote={item.quote}
+                  reason={item.note}
+                  moreLabel="展开原因"
+                />
+              ))}
+            </div>
+          </section>
 
-            <TrustAndTrend report={report} />
-            <RelationshipMeters meters={meters} />
-            <ScoreBreakdown report={report} />
-            <SaveReportButton reportId={report.id} />
+          <section className="space-y-3">
+            <SectionHeading id="next" eyebrow="Next" title="下一步怎么做" />
+            <NextStepGrid
+              items={[
+                {
+                  tone: "safe",
+                  title: "现在可以做什么",
+                  icon: <Footprints className="h-4 w-4" />,
+                  body: plan.strategy || report.suggestions[0] || "先观察对方接下来的实际行动。",
+                },
+                {
+                  tone: "risk",
+                  title: "现在不要做什么",
+                  icon: <Ban className="h-4 w-4" />,
+                  body: plan.dontDo[0] || "不要连续追问，也不要用试探逼对方表态。",
+                },
+                {
+                  tone: "neutral",
+                  title: "可以怎么回复",
+                  icon: <MessageSquareQuote className="h-4 w-4" />,
+                  body:
+                    unlocked && firstReply ? (
+                      <>“{firstReply}”</>
+                    ) : (
+                      <span className="flex items-start gap-2 text-muted-foreground">
+                        <LockKeyhole className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                        解锁高级版后，查看为这段聊天定制、可直接复制的回复。
+                      </span>
+                    ),
+                },
+              ]}
+            />
+            <div className="grid gap-3 lg:grid-cols-2">
+              <SaveReportButton reportId={report.id} />
+            </div>
             {unlocked ? <ReportActions report={report} /> : <PremiumUpgradeCard reportId={report.id} onUnlocked={setReport} />}
           </section>
 
-          <section className="space-y-5">
-            <ChatAstrologyLayerPanel report={report} layer={astrologyLayer} unlocked={unlocked} />
-            {unlocked ? (
-              <>
-                <ChatSpotlights spotlights={spotlights} />
-                <FullReportContent report={report} />
-              </>
-            ) : (
-              <>
-                <ChatSpotlights spotlights={spotlights} />
-                <FreeReportContent report={report} />
-                <AdvancedLockedPreview reportId={report.id} onUnlocked={setReport} />
-              </>
-            )}
+          <ChatAstrologyLayerPanel report={report} layer={astrologyLayer} unlocked={unlocked} />
 
-            <div className="flex gap-2 rounded-md border border-border bg-card p-3 text-xs leading-6 text-muted-foreground">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-              本报告由 AI 生成，仅供娱乐和沟通参考，不构成心理、法律或情感决策建议。
-            </div>
+          <section className="space-y-3">
+            <SectionHeading id="details" eyebrow="Details" title="完整分析" />
+            <DetailFold title="完整行为模式">
+              <p className="text-sm leading-7 text-muted-foreground">{report.behaviorPattern}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{report.summary}</p>
+            </DetailFold>
+            <DetailFold title="全部红旗" count={report.redFlags.length}>
+              {report.redFlags.length ? (
+                report.redFlags.map((item) => (
+                  <EvidenceBubble
+                    key={`${item.quote}-${item.reason}`}
+                    tone="risk"
+                    quote={item.quote}
+                    reason={item.reason}
+                    meta={`证据${item.strength || "中"}`}
+                    moreLabel="展开原因"
+                  />
+                ))
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">这段记录里暂时没有明显红旗证据。</p>
+              )}
+              {locked ? <p className="text-xs text-muted-foreground">免费版仅展示部分红旗，解锁后查看全部。</p> : null}
+            </DetailFold>
+            <DetailFold title="全部绿旗" count={report.greenFlags.length}>
+              {report.greenFlags.length ? (
+                report.greenFlags.map((item) => (
+                  <EvidenceBubble
+                    key={`${item.quote}-${item.reason}`}
+                    tone="safe"
+                    quote={item.quote}
+                    reason={item.reason}
+                    meta={`证据${item.strength || "中"}`}
+                    moreLabel="展开原因"
+                  />
+                ))
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">暂时没有稳定的正向信号。</p>
+              )}
+              {locked ? <p className="text-xs text-muted-foreground">免费版仅展示部分绿旗，解锁后查看全部。</p> : null}
+            </DetailFold>
+            <DetailFold title="完整建议" count={report.suggestions.length}>
+              {report.suggestions.map((suggestion) => (
+                <p key={suggestion} className="rounded-xl border border-white/10 bg-background/40 p-3 text-sm leading-6">
+                  {suggestion}
+                </p>
+              ))}
+              {plan.ifThen.map((item) => (
+                <div key={`${item.scenario}-${item.advice}`} className="rounded-xl border border-white/10 bg-background/40 p-3">
+                  <p className="text-xs font-semibold text-foreground">{item.scenario}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.advice}</p>
+                </div>
+              ))}
+            </DetailFold>
+            <DetailFold title="完整回复模板">
+              {unlocked ? (
+                <>
+                  <ActionPlanCard report={report} />
+                  {report.replyExamples.map((script) => (
+                    <p key={script} className="rounded-xl border border-accent/25 bg-accent/10 p-3 text-sm leading-6">
+                      {script}
+                    </p>
+                  ))}
+                </>
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">解锁高级版后，查看可直接复制的回复模板，以及对方不同反应时的应对方式。</p>
+              )}
+            </DetailFold>
+            <DetailFold title="可信度与关系走势">
+              <TrustAndTrend report={report} />
+            </DetailFold>
+            <DetailFold title="六项指数拆解">
+              <ScoreBreakdown report={report} />
+            </DetailFold>
+            {locked ? <AdvancedLockedPreview reportId={report.id} onUnlocked={setReport} /> : null}
           </section>
+
+          <div className="flex gap-2 rounded-md border border-border bg-card p-3 text-xs leading-6 text-muted-foreground">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            本报告由 AI 生成，仅供娱乐和沟通参考，不构成心理、法律或情感决策建议。
+          </div>
         </div>
       </div>
     </main>
@@ -711,174 +819,6 @@ function ActionPlanCard({ report }: { report: LoveReport }) {
   );
 }
 
-function FreeReportContent({ report }: { report: LoveReport }) {
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            行为模式总结
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm leading-7">
-          <p className="text-muted-foreground">{report.behaviorPattern}</p>
-          <div className="rounded-md border border-primary/25 bg-primary/10 p-3 text-xs leading-5 text-muted-foreground">
-            高级版会继续拆解对方的互动惯性、投入方式和关系推进阻力。
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageCircleWarning className="h-5 w-5 text-primary" />
-            红旗证据摘录
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {report.redFlags.length ? (
-            report.redFlags.map((item) => (
-              <EvidenceBlock
-                key={`${item.quote}-${item.reason}`}
-                quote={item.quote}
-                reason={item.reason}
-                strength={item.strength}
-              />
-            ))
-          ) : (
-            <p className="rounded-md border border-border bg-background/45 p-3 text-sm leading-6 text-muted-foreground">
-              这段记录里暂时没有明显红旗证据，建议结合更多上下文继续观察。
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>绿旗信号摘录</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {report.greenFlags.length ? (
-            report.greenFlags.map((item) => (
-              <EvidenceBlock
-                key={`${item.quote}-${item.reason}`}
-                quote={item.quote}
-                reason={item.reason}
-                strength={item.strength}
-              />
-            ))
-          ) : (
-            <p className="rounded-md border border-border bg-background/45 p-3 text-sm leading-6 text-muted-foreground">
-              暂时没有稳定的正向信号，高级版会结合完整证据链继续判断。
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>AI 总体结论与部分建议</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-md border border-accent/25 bg-accent/10 p-3">
-            <p className="text-xs font-medium text-muted-foreground">当前策略</p>
-            <p className="mt-2 text-sm leading-7 text-foreground">{report.actionPlan.strategy}</p>
-          </div>
-          <div className="space-y-2">
-            {report.suggestions.map((suggestion) => (
-              <p key={suggestion} className="rounded-md border border-border bg-background/50 p-3 text-sm leading-6">
-                {suggestion}
-              </p>
-            ))}
-          </div>
-          <div className="rounded-md border border-primary/25 bg-primary/10 p-3 text-xs leading-5 text-muted-foreground">
-            高级版会补全可直接复制的回复模板、不同回应下的应对方案，以及更完整的行动边界。
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
-
-function FullReportContent({ report }: { report: LoveReport }) {
-  return (
-    <>
-      <ActionPlanCard report={report} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            行为模式
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm leading-7">
-          <p className="text-muted-foreground">{report.behaviorPattern}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageCircleWarning className="h-5 w-5 text-primary" />
-            红旗证据
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {report.redFlags.map((item) => (
-            <EvidenceBlock
-              key={`${item.quote}-${item.reason}`}
-              quote={item.quote}
-              reason={item.reason}
-              strength={item.strength}
-            />
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>绿旗信号</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {report.greenFlags.map((item) => (
-            <EvidenceBlock
-              key={`${item.quote}-${item.reason}`}
-              quote={item.quote}
-              reason={item.reason}
-              strength={item.strength}
-            />
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>行动建议</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            {report.suggestions.map((suggestion) => (
-              <p key={suggestion} className="rounded-md border border-border bg-background/50 p-3 text-sm leading-6">
-                {suggestion}
-              </p>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">可参考回复</p>
-            {report.replyExamples.map((script) => (
-              <p key={script} className="rounded-md border border-accent/25 bg-accent/10 p-3 text-sm leading-6">
-                {script}
-              </p>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
-
 function ScoreBreakdown({ report }: { report: LoveReport }) {
   return (
     <Card>
@@ -905,89 +845,3 @@ function ScoreBreakdown({ report }: { report: LoveReport }) {
   );
 }
 
-function RelationshipMeters({ meters }: { meters: RelationshipMeter[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Gauge className="h-5 w-5 text-primary" />
-          关系进度条
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {meters.map((meter) => (
-          <div key={meter.label} className="rounded-md border border-border bg-background/45 p-3">
-            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium">{meter.label}</span>
-              <span className="font-mono text-primary">{meter.value}%</span>
-            </div>
-            <div className="h-2.5 rounded-full bg-muted">
-              <div
-                className={
-                  meter.tone === "safe"
-                    ? "h-2.5 rounded-full bg-accent"
-                    : meter.tone === "risk"
-                      ? "h-2.5 rounded-full bg-primary"
-                      : "h-2.5 rounded-full bg-muted-foreground"
-                }
-                style={{ width: `${meter.value}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{meter.caption}</p>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChatSpotlights({ spotlights }: { spotlights: ChatSpotlight[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquareQuote className="h-5 w-5 text-primary" />
-          聊天名场面
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {spotlights.map((item) => (
-          <div
-            key={`${item.title}-${item.quote}`}
-            className={
-              item.tone === "risk"
-                ? "rounded-md border border-primary/30 bg-primary/10 p-3"
-                : item.tone === "safe"
-                  ? "rounded-md border border-accent/30 bg-accent/10 p-3"
-                  : "rounded-md border border-border bg-background/45 p-3"
-            }
-          >
-            <p className="text-xs font-medium text-muted-foreground">{item.title}</p>
-            <p className="mt-2 text-base font-semibold leading-7 text-foreground">“{item.quote}”</p>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{item.note}</p>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function EvidenceBlock({ quote, reason, strength }: { quote: string; reason: string; strength?: string }) {
-  const label = strength || "中";
-  const tone =
-    label.includes("强")
-      ? "border-primary/35 bg-primary/10 text-primary"
-      : label.includes("弱")
-        ? "border-border bg-background/60 text-muted-foreground"
-        : "border-accent/30 bg-accent/10 text-accent";
-
-  return (
-    <div className="rounded-md border border-border bg-background/45 p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-medium">“{quote}”</p>
-        <Badge className={tone}>证据{label}</Badge>
-      </div>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">{reason}</p>
-    </div>
-  );
-}
