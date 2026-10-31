@@ -124,9 +124,14 @@ export default async function Home() {
             </div>
 
             <div>
-              <h1 className="lr-reveal text-balance text-5xl font-semibold leading-[1.05] tracking-normal sm:text-6xl" style={delay(60)}>
-                看懂聊天里的<br />
-                <span className="lr-text-glow">关系信号</span>
+              <h1 className="lr-reveal" style={delay(60)}>
+                <span className="block text-6xl font-semibold leading-[0.96] tracking-normal sm:text-7xl md:text-8xl">
+                  恋爱<span className="lr-text-glow">雷达</span>
+                </span>
+                <span className="mt-2 block text-sm font-medium uppercase tracking-[0.32em] text-white/45">Love Radar</span>
+                <span className="mt-4 block text-balance text-2xl font-semibold leading-tight text-white/90 sm:text-3xl">
+                  看懂聊天里的关系信号
+                </span>
               </h1>
               <p className="lr-reveal mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground" style={delay(140)}>
                 聊天不会骗人。粘贴文字或上传截图，AI 帮你看清对方的投入度、暧昧信号和沟通模式，再告诉你下一步怎么做。

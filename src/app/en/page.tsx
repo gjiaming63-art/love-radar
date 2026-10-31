@@ -91,10 +91,15 @@ export default async function EnglishHome() {
                 <span className="lr-ping absolute inset-0 rounded-full bg-primary/70" />
                 <span className="relative h-2 w-2 rounded-full bg-primary" />
               </span>
-              AI chat analysis<span className="hidden sm:inline"> for iMessage, Instagram, WhatsApp &amp; more</span>
+              <span>AI chat analysis<span className="hidden sm:inline"> for iMessage, Instagram, WhatsApp &amp; more</span></span>
             </div>
-            <h1 className="lr-reveal mt-5 text-balance text-5xl font-semibold leading-[1.02] sm:text-6xl" style={delay(80)}>
-              Read the <span className="lr-text-glow">signals</span> in your chats.
+            <h1 className="lr-reveal mt-5" style={delay(80)}>
+              <span className="block text-6xl font-semibold leading-[0.95] tracking-tight sm:text-7xl md:text-8xl">
+                Love <span className="lr-text-glow">Radar</span>
+              </span>
+              <span className="mt-4 block text-balance text-2xl font-semibold leading-tight text-white/90 sm:text-3xl">
+                Read the signals in your chats.
+              </span>
             </h1>
             <p className="lr-reveal mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground" style={delay(160)}>
               Upload a screenshot. Love Radar reads interest, mixed signals and communication patterns — and shows you
