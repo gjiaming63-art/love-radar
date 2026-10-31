@@ -273,15 +273,12 @@ export function DetailFold({
   children: ReactNode;
 }) {
   return (
-    <details className="group rounded-2xl border border-white/10 bg-white/[0.03]">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
-        <span>
-          {title}
-          {typeof count === "number" ? <span className="ml-2 text-xs text-muted-foreground">{count}</span> : null}
-        </span>
-        <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
-      </summary>
-      <div className="space-y-3 border-t border-white/5 px-4 py-4">{children}</div>
-    </details>
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03]">
+      <h3 className="px-4 pt-4 text-sm font-semibold text-foreground">
+        {title}
+        {typeof count === "number" ? <span className="ml-2 text-xs font-normal text-muted-foreground">{count}</span> : null}
+      </h3>
+      <div className="space-y-3 px-4 pb-4 pt-3">{children}</div>
+    </section>
   );
 }
