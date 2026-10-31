@@ -19,8 +19,9 @@ export async function POST(request: Request) {
     const isTestAccount = Boolean(user?.isTestAccount);
     const saved = await saveReport({
       ...body.report,
-      isPaid: isTestAccount || Boolean(body.report.isPaid),
-      paidAt: isTestAccount ? new Date().toISOString() : body.report.paidAt,
+      // Paid status is only ever set server-side (payment webhook / redeem code), never by the client.
+      isPaid: isTestAccount,
+      paidAt: isTestAccount ? new Date().toISOString() : null,
       locale: body.locale ?? body.report.locale ?? "zh-CN",
       inputType: body.inputType ?? body.report.inputType ?? "text",
       analysisLanguage: body.locale ?? body.report.analysisLanguage ?? "zh-CN",

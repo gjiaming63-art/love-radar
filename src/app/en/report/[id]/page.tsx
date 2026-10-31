@@ -4,7 +4,7 @@ import { EnglishReportView } from "@/components/radar/en/report-view";
 import { getCurrentUser } from "@/lib/auth";
 import { isDodoConfigured } from "@/lib/dodo";
 import { isLemonSqueezyConfigured } from "@/lib/lemonsqueezy";
-import { getReport, redactReport } from "@/lib/reports";
+import { getLockedCounts, getReport, redactReportForEnglish } from "@/lib/reports";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata = createNoIndexMetadata("Relationship analysis report");
@@ -22,7 +22,8 @@ export default async function EnglishReportPage({ params }: { params: Promise<{ 
   const paywallEnabled = checkoutEnabled || Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
   return (
     <EnglishReportView
-      report={paywallEnabled ? redactReport(effectiveReport) : effectiveReport}
+      report={paywallEnabled ? redactReportForEnglish(effectiveReport) : effectiveReport}
+      lockedCounts={getLockedCounts(effectiveReport)}
       checkoutEnabled={checkoutEnabled}
       price={process.env.NEXT_PUBLIC_REPORT_PRICE_LABEL || "$4.99"}
     />

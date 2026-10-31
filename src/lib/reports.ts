@@ -398,6 +398,48 @@ export async function getReport(id: string): Promise<StoredReport | null> {
   });
 }
 
+export type LockedCounts = {
+  redFlags: number;
+  greenFlags: number;
+  suggestions: number;
+  replies: number;
+};
+
+/** How many paid items a report holds, so the free view can say "N more in the full report". */
+export function getLockedCounts(report: LoveReport): LockedCounts {
+  return {
+    redFlags: report.redFlags.length,
+    greenFlags: report.greenFlags.length,
+    suggestions: report.suggestions.length + (report.actionPlan?.ifThen.length ?? 0),
+    replies: (report.actionPlan?.nextReplies.length ?? 0) + report.replyExamples.length,
+  };
+}
+
+/**
+ * English free tier: keeps only what the free report page shows above the paywall
+ * (verdict, signals, one red / one green example, the strategy and one "don't").
+ * Everything in the detailed analysis is removed server-side.
+ */
+export function redactReportForEnglish(report: StoredReport): StoredReport {
+  if (report.isPaid) return report;
+  return {
+    ...report,
+    summary: "",
+    behaviorPattern: "",
+    riskTags: report.riskTags.slice(0, 5),
+    redFlags: report.redFlags.slice(0, 1),
+    greenFlags: report.greenFlags.slice(0, 1),
+    suggestions: report.suggestions.slice(0, 1),
+    replyExamples: [],
+    actionPlan: {
+      strategy: report.actionPlan.strategy,
+      nextReplies: [],
+      ifThen: [],
+      dontDo: report.actionPlan.dontDo.slice(0, 1),
+    },
+  };
+}
+
 export function redactReport(report: StoredReport): StoredReport {
   if (report.isPaid) return report;
   return {

@@ -17,16 +17,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getChatSpotlights, getRelationshipMeters, getReportInsight } from "@/lib/report-insights";
+import type { LockedCounts } from "@/lib/reports";
 import type { LoveReport } from "@/types/report";
 
 export function EnglishReportView({
   report,
   checkoutEnabled = false,
   price = "$4.99",
+  lockedCounts,
 }: {
   report: LoveReport & { id: string };
   checkoutEnabled?: boolean;
   price?: string;
+  lockedCounts?: LockedCounts;
 }) {
   const [message, setMessage] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -85,7 +88,6 @@ export function EnglishReportView({
   const spotlights = getChatSpotlights(report, "en-US");
   const plan = report.actionPlan;
   const firstReply = plan.nextReplies[0]?.text || report.replyExamples[0];
-  const lockedNote = (text: string) => (report.isPaid ? null : <p className="text-xs text-muted-foreground">{text}</p>);
 
   return (
     <main className="min-h-svh px-4 pb-8 pt-3 text-white">
@@ -216,6 +218,7 @@ export function EnglishReportView({
             )}
           </section>
 
+          {report.isPaid ? (
           <section className="space-y-3">
             <SectionHeading id="details" eyebrow="Details" title="Full analysis" />
             <DetailFold title="Full behavior pattern">
@@ -226,13 +229,11 @@ export function EnglishReportView({
               {report.redFlags.length ? report.redFlags.map((item, index) => (
                 <EvidenceBubble key={`${item.quote}-${index}`} tone="risk" quote={item.quote} reason={item.reason} moreLabel="Why" />
               )) : <p className="text-sm text-muted-foreground">No clear red flags in this chat.</p>}
-              {lockedNote("Free report shows the top red flags. Unlock to see all of them.")}
             </DetailFold>
             <DetailFold title="All green flags" count={report.greenFlags.length}>
               {report.greenFlags.length ? report.greenFlags.map((item, index) => (
                 <EvidenceBubble key={`${item.quote}-${index}`} tone="safe" quote={item.quote} reason={item.reason} moreLabel="Why" />
               )) : <p className="text-sm text-muted-foreground">No consistent green flags yet.</p>}
-              {lockedNote("Free report shows the top green flags. Unlock to see all of them.")}
             </DetailFold>
             <DetailFold title="Full advice" count={report.suggestions.length}>
               {report.suggestions.map((text, index) => <p key={index} className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm leading-6">{text}</p>)}
@@ -245,7 +246,6 @@ export function EnglishReportView({
               {plan.dontDo.length > 1 ? (
                 <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">{plan.dontDo.map((text, index) => <li key={index}>{text}</li>)}</ul>
               ) : null}
-              {lockedNote("Unlock for the complete if-then game plan.")}
             </DetailFold>
             <DetailFold title="Full reply templates">
               {report.isPaid ? (
@@ -263,6 +263,25 @@ export function EnglishReportView({
               )}
             </DetailFold>
           </section>
+          ) : (
+            <section className="space-y-3">
+              <SectionHeading id="details" eyebrow="Full report" title="What's in the full report" />
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  "Full behavior pattern breakdown",
+                  lockedCounts?.redFlags ? `All ${lockedCounts.redFlags} red flags, with reasons` : "Every red flag, with reasons",
+                  lockedCounts?.greenFlags ? `All ${lockedCounts.greenFlags} green flags, with reasons` : "Every green flag, with reasons",
+                  lockedCounts?.suggestions ? `${lockedCounts.suggestions} pieces of advice and an if-then game plan` : "Complete advice and an if-then game plan",
+                  lockedCounts?.replies ? `${lockedCounts.replies} word-for-word replies for this chat` : "Word-for-word replies for this chat",
+                ].map((item) => (
+                  <a key={item} href="#unlock" className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-muted-foreground transition hover:border-primary/40">
+                    <LockKeyhole className="h-4 w-4 shrink-0 text-primary" />
+                    <span>{item}</span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
 
           <div className="flex items-center justify-between text-xs text-muted-foreground"><span>AI-generated for entertainment and communication reference only.</span><Share2 className="h-4 w-4" /></div>
         </div>

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { deleteReport, getReport, redactReport } from "@/lib/reports";
+import { isDodoConfigured } from "@/lib/dodo";
+import { isLemonSqueezyConfigured } from "@/lib/lemonsqueezy";
+import { deleteReport, getReport, redactReport, redactReportForEnglish } from "@/lib/reports";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -16,6 +18,10 @@ export async function GET(_request: Request, context: RouteContext) {
   const effectiveReport = user?.isTestAccount
     ? { ...report, isPaid: true, paidAt: report.paidAt ?? new Date().toISOString() }
     : report;
+  if (report.locale === "en-US") {
+    const englishPaywall = isDodoConfigured() || isLemonSqueezyConfigured() || Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
+    return NextResponse.json({ report: englishPaywall ? redactReportForEnglish(effectiveReport) : effectiveReport });
+  }
   const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
   return NextResponse.json({ report: paywallEnabled ? redactReport(effectiveReport) : effectiveReport });
 }
