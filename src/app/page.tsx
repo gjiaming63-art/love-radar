@@ -125,7 +125,8 @@ export default async function Home() {
 
             <div>
               <h1 className="lr-reveal text-balance text-5xl font-semibold leading-[1.05] tracking-normal sm:text-6xl" style={delay(60)}>
-                看懂聊天里的<span className="lr-text-glow">关系信号</span>
+                看懂聊天里的<br />
+                <span className="lr-text-glow">关系信号</span>
               </h1>
               <p className="lr-reveal mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground" style={delay(140)}>
                 聊天不会骗人。粘贴文字或上传截图，AI 帮你看清对方的投入度、暧昧信号和沟通模式，再告诉你下一步怎么做。

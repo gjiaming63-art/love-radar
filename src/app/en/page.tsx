@@ -91,7 +91,7 @@ export default async function EnglishHome() {
                 <span className="lr-ping absolute inset-0 rounded-full bg-primary/70" />
                 <span className="relative h-2 w-2 rounded-full bg-primary" />
               </span>
-              AI chat analysis for iMessage, Instagram, WhatsApp &amp; more
+              AI chat analysis<span className="hidden sm:inline"> for iMessage, Instagram, WhatsApp &amp; more</span>
             </div>
             <h1 className="lr-reveal mt-5 text-balance text-5xl font-semibold leading-[1.02] sm:text-6xl" style={delay(80)}>
               Read the <span className="lr-text-glow">signals</span> in your chats.
@@ -141,11 +141,11 @@ export default async function EnglishHome() {
           </div>
         </div>
 
-        <div className="grid gap-3 pb-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 pb-10 sm:gap-3 lg:grid-cols-4">
           {signalCards.map((card, index) => (
             <div
               key={card.title}
-              className="lr-reveal lr-hover-lift rounded-[22px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur"
+              className="lr-reveal lr-hover-lift rounded-[20px] border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur sm:p-4"
               style={delay(380 + index * 80)}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
