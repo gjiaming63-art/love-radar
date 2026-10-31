@@ -47,8 +47,16 @@ export function EnglishAnalyzeForm() {
         throw new Error(payload.error || "Could not read these screenshots.");
       }
 
-      setText(payload.parsed.chatText);
-      setParsedMessages(payload.parsed.messages?.length ? payload.parsed.messages : null);
+      const parsedText = payload.parsed.chatText;
+      const nextParsedMessages = payload.parsed.messages?.length ? payload.parsed.messages : null;
+      setText(parsedText);
+      setParsedMessages(nextParsedMessages);
+      setStage("analyzing");
+      await analyze({
+        chatText: parsedText,
+        parsedMessages: nextParsedMessages,
+        inputType: "image",
+      });
     } catch (cause) {
       setImages([]);
       setParsedMessages(null);
@@ -63,17 +71,22 @@ export function EnglishAnalyzeForm() {
     }
   }
 
-  async function analyze() {
+  async function analyze(input?: {
+    chatText?: string;
+    parsedMessages?: ParsedChatImageMessage[] | null;
+    inputType?: "text" | "image";
+  }) {
     setError("");
-    if (!text.trim() && !images.length) {
+    const currentChatText = input?.chatText?.trim() ?? text.trim();
+    const currentParsedMessages = input?.parsedMessages ?? parsedMessages;
+    const currentInputType = input?.inputType ?? (images.length ? "image" : "text");
+    if (!currentChatText && !images.length) {
       setError("Add chat text or upload at least one screenshot.");
       return;
     }
     setLoading(true);
     try {
-      const chatText = text.trim();
-      const inputType: "text" | "image" = isScreenshotConversation ? "image" : "text";
-      const roleContext: RoleContext = isScreenshotConversation
+      const roleContext: RoleContext = currentInputType === "image"
         ? { participants: ["Me", "Other"], selfName: "Me", targetName: "Other" }
         : {
             participants: speakers,
@@ -85,11 +98,11 @@ export function EnglishAnalyzeForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chatText,
-          parsedMessages,
+          chatText: currentChatText,
+          parsedMessages: currentParsedMessages,
           mode,
           locale: "en-US",
-          inputType,
+          inputType: currentInputType,
           roleContext,
         }),
       });
@@ -98,7 +111,7 @@ export function EnglishAnalyzeForm() {
       const save = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report: payload.report, locale: "en-US", inputType }),
+        body: JSON.stringify({ report: payload.report, locale: "en-US", inputType: currentInputType }),
       });
       const saved = (await save.json()) as { report?: { id: string }; error?: string };
       if (!save.ok || !saved.report) throw new Error(saved.error || "Could not save the report.");
@@ -124,7 +137,7 @@ export function EnglishAnalyzeForm() {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        disabled={stage === "reading"}
+        disabled={stage !== "idle"}
         className="flex w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-accent/50 bg-accent/10 px-5 py-8 text-center text-white transition hover:bg-accent/15 disabled:opacity-60"
       >
         <ImagePlus className="h-8 w-8 text-accent" />
@@ -133,7 +146,7 @@ export function EnglishAnalyzeForm() {
         <span className="mt-1 text-xs leading-5 text-muted-foreground">Up to 4 screenshots · 1 free analysis per day</span>
       </button>
       <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
-      <details className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white" open={Boolean(text)}>
+      <details className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white" open={Boolean(text) && !images.length}>
         <summary className="cursor-pointer select-none text-sm text-muted-foreground">Or paste the chat as text (e.g. a WhatsApp chat export)</summary>
         <textarea id="chat-text" value={text} onChange={(event) => { setText(event.target.value); setImages([]); setParsedMessages(null); }} rows={8} placeholder={"Alex: hey, you around this weekend?\nMe: maybe! what's up?"} className="mt-3 min-h-[200px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none focus:border-primary/70" />
         <span className="mt-2 block text-xs text-muted-foreground">Free text analysis: 3 per day</span>
@@ -176,7 +189,7 @@ export function EnglishAnalyzeForm() {
         <option value="comprehensive">Overall analysis</option><option value="sincerity">How sincere are they?</option><option value="fishing">Are they keeping options open?</option><option value="cold_violence">Could this be silent treatment?</option><option value="worth_investing">Is this worth more investment?</option>
       </select>
       {error ? <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm leading-6 text-red-200">{error}</p> : null}
-      <Button type="button" size="lg" className="w-full" onClick={analyze} disabled={loading || stage === "reading"}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading ? enUS.analyzing : enUS.generate}</Button>
+      <Button type="button" size="lg" className="w-full" onClick={() => analyze()} disabled={loading || stage !== "idle"}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading ? enUS.analyzing : enUS.generate}</Button>
     </section>
   );
 }
