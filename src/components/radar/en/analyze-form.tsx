@@ -1,12 +1,14 @@
 "use client";
 
-import { type ChangeEvent, useRef, useState } from "react";
-import { ImagePlus, Loader2, Send, Sparkles, Users } from "lucide-react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Loader2, Send, Sparkles, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { enUS } from "@/lib/i18n/en-US";
 import { parseWechatTranscript } from "@/lib/chat-text-parser";
 import type { AnalysisMode, LoveReport, ParsedChatImageMessage, RoleContext } from "@/types/report";
+
+const maxScreenshots = 4;
 
 export function EnglishAnalyzeForm() {
   const router = useRouter();
@@ -29,19 +31,36 @@ export function EnglishAnalyzeForm() {
 
   const isScreenshotConversation = Boolean(parsedMessages?.length);
 
-  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
-    const selectedImages = Array.from(event.target.files ?? []).slice(0, 8);
-    event.target.value = "";
-    if (!selectedImages.length) return;
+  const previewUrls = useMemo(() => images.map((file) => URL.createObjectURL(file)), [images]);
+  useEffect(() => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)), [previewUrls]);
 
+  // Selecting screenshots only previews them. Nothing is uploaded (and no quota is used)
+  // until the user taps the analyze button.
+  function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!picked.length) return;
+    setError(picked.length > maxScreenshots ? `Only the first ${maxScreenshots} screenshots were added.` : "");
+    setImages(picked.slice(0, maxScreenshots));
+    setText("");
+    setParsedMessages(null);
+    setSpeakerChoice(null);
+  }
+
+  function removeImage(index: number) {
+    setImages((current) => current.filter((_, i) => i !== index));
+    setParsedMessages(null);
+  }
+
+  async function analyzeScreenshots() {
+    if (!images.length) return;
     setError("");
-    setImages(selectedImages);
     setParsedMessages(null);
     setSpeakerChoice(null);
     setStage("reading");
 
     try {
-      const response = await uploadScreenshotsForParsing(selectedImages);
+      const response = await uploadScreenshotsForParsing(images);
       const payload = await response.json();
       if (!response.ok || !payload.parsed?.chatText) {
         throw new Error(payload.error || "Could not read these screenshots.");
@@ -49,7 +68,6 @@ export function EnglishAnalyzeForm() {
 
       const parsedText = payload.parsed.chatText;
       const nextParsedMessages = payload.parsed.messages?.length ? payload.parsed.messages : null;
-      setText(parsedText);
       setParsedMessages(nextParsedMessages);
       setStage("analyzing");
       await analyze({
@@ -58,8 +76,6 @@ export function EnglishAnalyzeForm() {
         inputType: "image",
       });
     } catch (cause) {
-      setImages([]);
-      setParsedMessages(null);
       const message = cause instanceof Error ? cause.message : "";
       setError(
         /expected pattern|string did not match|pattern/i.test(message)
@@ -143,7 +159,7 @@ export function EnglishAnalyzeForm() {
         <ImagePlus className="h-8 w-8 text-accent" />
         <span className="mt-3 text-lg font-semibold">{images.length ? "Choose different screenshots" : "Upload chat screenshots"}</span>
         <span className="mt-1 text-xs leading-5 text-muted-foreground">iMessage, Instagram, WhatsApp, Snapchat, Tinder, Hinge and more</span>
-        <span className="mt-1 text-xs leading-5 text-muted-foreground">Up to 4 screenshots · 1 free analysis per day</span>
+        <span className="mt-1 text-xs leading-5 text-muted-foreground">Up to 4 screenshots · 3 free analyses per day</span>
       </button>
       <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
       <details className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white" open={Boolean(text) && !images.length}>
@@ -151,7 +167,30 @@ export function EnglishAnalyzeForm() {
         <textarea id="chat-text" value={text} onChange={(event) => { setText(event.target.value); setImages([]); setParsedMessages(null); }} rows={8} placeholder={"Alex: hey, you around this weekend?\nMe: maybe! what's up?"} className="mt-3 min-h-[200px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none focus:border-primary/70" />
         <span className="mt-2 block text-xs text-muted-foreground">Free text analysis: 3 per day</span>
       </details>
-      {images.length ? <p className="text-xs text-muted-foreground">{images.length} screenshot{images.length > 1 ? "s" : ""} selected.</p> : null}
+      {images.length ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 gap-2">
+            {previewUrls.map((url, index) => (
+              <div key={url} className="relative aspect-[9/16] overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Screenshot ${index + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  disabled={stage !== "idle"}
+                  aria-label={`Remove screenshot ${index + 1}`}
+                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {images.length} screenshot{images.length > 1 ? "s" : ""} ready. Check they&apos;re the right chat, then tap Analyze. Nothing is uploaded until you do.
+          </p>
+        </div>
+      ) : null}
       {isScreenshotConversation ? (
         <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-white">
           <div className="flex items-center gap-2 font-medium"><Users className="h-4 w-4 text-accent" />Chat direction recognized</div>
@@ -189,7 +228,7 @@ export function EnglishAnalyzeForm() {
         <option value="comprehensive">Overall analysis</option><option value="sincerity">How sincere are they?</option><option value="fishing">Are they keeping options open?</option><option value="cold_violence">Could this be silent treatment?</option><option value="worth_investing">Is this worth more investment?</option>
       </select>
       {error ? <p className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm leading-6 text-red-200">{error}</p> : null}
-      <Button type="button" size="lg" className="w-full" onClick={() => analyze()} disabled={loading || stage !== "idle"}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading ? enUS.analyzing : enUS.generate}</Button>
+      <Button type="button" size="lg" className="w-full" onClick={() => (images.length ? analyzeScreenshots() : analyze())} disabled={loading || stage !== "idle"}>{loading || stage !== "idle" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{loading || stage !== "idle" ? enUS.analyzing : images.length ? "Analyze screenshots" : enUS.generate}</Button>
     </section>
   );
 }

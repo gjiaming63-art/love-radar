@@ -13,12 +13,15 @@ const configuredDailyLimit = Number(process.env.SCREENSHOT_DAILY_LIMIT ?? 2);
 
 export const maxDuration = 60;
 
+// English site: free screenshot analyses per device (IP + browser) per day. Failed reads never count.
+const englishScreenshotDailyLimit = 3;
+
 export async function POST(request: Request) {
   let locale: "zh-CN" | "en-US" = "zh-CN";
   try {
     const body = await readImageRequest(request);
     locale = body.locale;
-    const dailyLimit = locale === "en-US" ? 1 : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2);
+    const dailyLimit = locale === "en-US" ? englishScreenshotDailyLimit : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2);
     const images = body.images;
 
     if (!images.length) {
