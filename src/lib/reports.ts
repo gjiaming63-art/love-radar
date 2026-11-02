@@ -440,21 +440,25 @@ export function redactReportForEnglish(report: StoredReport): StoredReport {
   };
 }
 
+/**
+ * 中文免费版：只保留报告页免费区展示的内容（结论、6 项指数、红旗绿旗各 1 条、一句可以做 / 不要做）。
+ * 完整分析、话术和应对策略在服务器端移除，兑换后才下发。
+ */
 export function redactReport(report: StoredReport): StoredReport {
   if (report.isPaid) return report;
   return {
     ...report,
-    riskTags: report.riskTags.slice(0, 4),
-    confidence: report.confidence,
-    relationshipTrend: report.relationshipTrend,
-    redFlags: report.redFlags.slice(0, 3),
-    greenFlags: report.greenFlags.slice(0, 2),
-    suggestions: report.suggestions.slice(0, 2),
+    summary: "",
+    behaviorPattern: "",
+    riskTags: report.riskTags.slice(0, 3),
+    redFlags: report.redFlags.slice(0, 1),
+    greenFlags: report.greenFlags.slice(0, 1),
+    suggestions: report.suggestions.slice(0, 1),
     replyExamples: [],
     actionPlan: {
       strategy: report.actionPlan.strategy,
       nextReplies: [],
-      ifThen: report.actionPlan.ifThen.slice(0, 1),
+      ifThen: [],
       dontDo: report.actionPlan.dontDo.slice(0, 1),
     },
   };

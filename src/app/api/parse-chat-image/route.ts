@@ -9,7 +9,7 @@ const maxImageSize = 3 * 1024 * 1024;
 const freeMaxImageCount = 4;
 const paidMaxImageCount = 8;
 const parseBatchSize = 1;
-const configuredDailyLimit = Number(process.env.SCREENSHOT_DAILY_LIMIT ?? 2);
+const configuredDailyLimit = Number(process.env.SCREENSHOT_DAILY_LIMIT ?? 3);
 
 export const maxDuration = 60;
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   try {
     const body = await readImageRequest(request);
     locale = body.locale;
-    const dailyLimit = locale === "en-US" ? englishScreenshotDailyLimit : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 2) : 2);
+    const dailyLimit = locale === "en-US" ? englishScreenshotDailyLimit : (Number.isFinite(configuredDailyLimit) ? Math.min(configuredDailyLimit, 3) : 3);
     const images = body.images;
 
     if (!images.length) {

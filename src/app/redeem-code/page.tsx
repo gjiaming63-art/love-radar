@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { CodeClaimForm } from "@/components/radar/code-claim-form";
 import { createNoIndexMetadata } from "@/lib/seo";
 
 export const metadata = createNoIndexMetadata("领取兑换码");
 
 export default function RedeemCodePage() {
+  if (process.env.ENABLE_ORDER_CODE_CLAIM !== "true") notFound();
   return (
     <main className="relative min-h-svh overflow-hidden bg-[#07070d] px-4 py-6 text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,69,132,0.22),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_22%)]" />

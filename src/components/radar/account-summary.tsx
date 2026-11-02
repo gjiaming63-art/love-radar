@@ -15,6 +15,8 @@ type AccountReport = {
   kind?: "chat" | "astrology";
 };
 
+const showNewUserGift = false;
+
 export function AccountSummary({
   email,
   displayName,
@@ -148,6 +150,8 @@ export function AccountSummary({
         </div>
       </section>
 
+      {/* 新人福利码暂时隐藏（中文站只保留小红书兑换码）。改成 true 即可恢复。 */}
+      {showNewUserGift ? (
       <section className="overflow-hidden rounded-[28px] border border-primary/35 bg-[radial-gradient(circle_at_20%_0%,rgba(255,70,124,0.22),transparent_34%),rgba(255,255,255,0.04)] p-5">
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-primary/15 text-primary">
@@ -196,6 +200,7 @@ export function AccountSummary({
 
         {giftMessage ? <p className="mt-3 text-xs leading-5 text-muted-foreground">{giftMessage}</p> : null}
       </section>
+      ) : null}
 
       <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
         <div className="flex items-center gap-2">

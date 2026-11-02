@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AnalyzeForm } from "@/components/radar/analyze-form";
+import { HeroRadar } from "@/components/radar/hero-radar";
 import { createPageMetadata } from "@/lib/seo";
 
 export const metadata = createPageMetadata({
@@ -20,6 +21,7 @@ export default function AnalyzePage() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="signal-grid absolute inset-0 opacity-30" />
         <div className="lr-landing-glow absolute inset-0 opacity-70" />
+        <HeroRadar className="absolute -right-24 -top-20 w-72 opacity-40 sm:-right-16 sm:w-96 sm:opacity-50" />
       </div>
       <div className="relative mx-auto w-full max-w-3xl">
         <Link

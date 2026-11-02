@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { claimUnlockCode } from "@/lib/code-claims";
 
 export async function POST(request: Request) {
+  // 面包多订单领码已停用：只校验格式、无法验证订单真实性。需要时设置 ENABLE_ORDER_CODE_CLAIM=true 恢复。
+  if (process.env.ENABLE_ORDER_CODE_CLAIM !== "true") {
+    return NextResponse.json({ success: false, error: "领取入口已停用，请联系卖家获取兑换码。" }, { status: 410 });
+  }
   try {
     const body = (await request.json().catch(() => ({}))) as {
       orderNo?: string;

@@ -1,24 +1,8 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import {
-  Activity,
-  ArrowRight,
-  HeartPulse,
-  MessagesSquare,
-  Signpost,
-  BrainCircuit,
-  LogIn,
-  MessageSquareText,
-  Orbit,
-  Radar,
-  ShieldCheck,
-  Sparkles,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
+import { Activity, ArrowRight, HeartPulse, LogIn, MessagesSquare, Radar, ShieldCheck, Signpost, UserRound, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HeroRadar, type HeroBubble } from "@/components/radar/hero-radar";
 import { getCurrentUser } from "@/lib/auth";
 import { createPageMetadata } from "@/lib/seo";
 
@@ -45,48 +29,21 @@ export const metadata = createPageMetadata({
   },
 });
 
+const heroBubbles: HeroBubble[] = [
+  { text: "哈哈再说吧", kind: "in", position: "left-[-2%] top-[14%]", delay: 0 },
+  { text: "那周六见？", kind: "out", position: "right-[0%] top-[30%]", delay: 1200 },
+  { text: "检测到拉扯信号", kind: "signal", position: "left-[2%] bottom-[22%]", delay: 600 },
+  { text: "投入度：偏低", kind: "signal", position: "right-[4%] bottom-[8%]", delay: 1800 },
+];
+
 const signalCards: Array<{ icon: LucideIcon; title: string; desc: string }> = [
-  { icon: Activity, title: "关系状态", desc: "暧昧、热恋还是在降温" },
+  { icon: Activity, title: "关系状态", desc: "暧昧、热恋，还是在降温" },
   { icon: HeartPulse, title: "情绪信号", desc: "投入度、敷衍和忽冷忽热" },
   { icon: MessagesSquare, title: "沟通模式", desc: "谁主动、谁回避、谁在拉扯" },
-  { icon: Signpost, title: "下一步建议", desc: "该怎么回、要不要继续" },
+  { icon: Signpost, title: "下一步建议", desc: "该怎么回，要不要继续" },
 ];
 
 const delay = (ms: number) => ({ "--lr-delay": `${ms}ms` }) as CSSProperties;
-
-const chips = ["渣感指数", "上头指数", "养鱼概率", "冷暴力信号", "真诚度扫描"];
-
-const featureLinks: Array<{
-  href: string;
-  title: string;
-  desc: string;
-  badge: string;
-  icon: LucideIcon;
-  primary?: boolean;
-}> = [
-  {
-    href: "/analyze",
-    title: "聊天记录分析",
-    desc: "上传文字或截图，识别敷衍、冷暴力、养鱼和情绪拉扯。",
-    badge: "主功能",
-    icon: MessageSquareText,
-    primary: true,
-  },
-  {
-    href: "/personality",
-    title: "恋爱人格测试",
-    desc: "10 道题测出你的恋爱类型和代表角色，适合发朋友圈。",
-    badge: "趣味测试",
-    icon: BrainCircuit,
-  },
-  {
-    href: "/astrology",
-    title: "恋爱占星师",
-    desc: "输入出生信息，看看你们的关系星图和吸引模式。",
-    badge: "新功能",
-    icon: Orbit,
-  },
-];
 
 export default async function Home() {
   const user = await getCurrentUser();
@@ -95,199 +52,83 @@ export default async function Home() {
   const AccountIcon = user ? UserRound : LogIn;
 
   return (
-    <main className="relative min-h-svh overflow-hidden px-4 py-5 sm:px-6">
-      <div className="signal-grid pointer-events-none absolute inset-0 opacity-60" aria-hidden="true" />
+    <main className="relative min-h-svh overflow-hidden px-5 py-6 text-white">
+      <div className="signal-grid pointer-events-none absolute inset-0 opacity-50" aria-hidden="true" />
       <div className="lr-landing-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-primary/10 blur-3xl" />
-
-      <section className="relative mx-auto flex min-h-[calc(100svh-2.5rem)] w-full max-w-6xl flex-col">
+      <section className="relative mx-auto flex w-full max-w-5xl flex-col md:min-h-[calc(100svh-3rem)]">
         <header className="flex items-center justify-between gap-3 pr-24 sm:pr-0">
           <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/40 bg-primary/15 text-primary">
               <Radar className="h-4 w-4" />
             </span>
-            <span className="truncate">Love Radar</span>
+            <span className="truncate">恋爱雷达</span>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Badge className="hidden sm:inline-flex">娱乐分析</Badge>
-          </div>
+          <Link
+            href={accountHref}
+            prefetch={false}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-white"
+          >
+            <AccountIcon className="h-3.5 w-3.5" />
+            {accountLabel}
+          </Link>
         </header>
 
-        <div className="grid flex-1 gap-8 pb-6 pt-10 lg:grid-cols-[0.96fr_1.04fr] lg:items-center lg:pt-14">
-          <div className="space-y-8">
-            <div className="flex flex-wrap gap-2">
-              {chips.slice(0, 3).map((chip) => (
-                <Badge key={chip} className="border-primary/25 bg-primary/10 text-primary">
-                  {chip}
-                </Badge>
-              ))}
+        <div className="grid flex-1 gap-10 pb-10 pt-10 md:grid-cols-[1.05fr_0.95fr] md:items-center md:pt-12">
+          <div>
+            <div className="lr-reveal inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs text-rose-200" style={delay(0)}>
+              <span className="relative flex h-2 w-2">
+                <span className="lr-ping absolute inset-0 rounded-full bg-primary/70" />
+                <span className="relative h-2 w-2 rounded-full bg-primary" />
+              </span>
+              AI 聊天记录分析
             </div>
-
-            <div>
-              <h1 className="lr-reveal" style={delay(60)}>
-                <span className="block text-6xl font-semibold leading-[0.96] tracking-normal sm:text-7xl md:text-8xl">
-                  恋爱<span className="lr-text-glow">雷达</span>
-                </span>
-                <span className="mt-2 block text-sm font-medium uppercase tracking-[0.32em] text-white/45">Love Radar</span>
-                <span className="mt-4 block text-balance text-2xl font-semibold leading-tight text-white/90 sm:text-3xl">
-                  看懂聊天里的关系信号
-                </span>
-              </h1>
-              <p className="lr-reveal mt-5 max-w-xl text-pretty text-lg leading-8 text-muted-foreground" style={delay(140)}>
-                聊天不会骗人。粘贴文字或上传截图，AI 帮你看清对方的投入度、暧昧信号和沟通模式，再告诉你下一步怎么做。
-              </p>
-
-              <div className="lr-reveal mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={delay(220)}>
-                <Link href="/analyze" prefetch={false} className="sm:w-auto">
-                  <Button size="lg" className="lr-breathe w-full sm:w-auto">
-                    开始分析我的聊天记录
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/personality" prefetch={false} className="sm:w-auto">
-                  <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                    <BrainCircuit className="h-4 w-4 text-violet-300" />
-                    先做恋爱人格测试
-                  </Button>
-                </Link>
-                <Link href={accountHref} prefetch={false} className="sm:w-auto">
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="w-full border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 sm:w-auto"
-                  >
-                    <AccountIcon className="h-4 w-4" />
-                    {accountLabel}
-                  </Button>
-                </Link>
-                <div className="flex items-center gap-2 text-xs leading-5 text-muted-foreground">
-                  <ShieldCheck className="h-4 w-4 text-accent" />
-                  不保存聊天原文，上传前先打码
-                </div>
-              </div>
-
-              <Link
-                href={accountHref}
-                prefetch={false}
-                className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-primary/25 bg-primary/10 px-4 py-3 text-left shadow-[0_0_28px_rgb(244_63_94_/_0.1)] transition hover:border-primary/45 hover:bg-primary/15"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-primary">
-                    {user ? "新人福利码已在账户里" : "首次登录赠送兑换码"}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {user ? "可在“我的”页面领取或查看，用来免费解锁一次深度版。" : "登录后可领取 1 个福利码，免费体验一次深度版功能。"}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-primary" />
+            <h1 className="lr-reveal mt-5" style={delay(80)}>
+              <span className="block text-6xl font-semibold leading-[0.96] tracking-normal sm:text-7xl md:text-8xl">
+                恋爱<span className="lr-text-glow">雷达</span>
+              </span>
+              <span className="mt-2 block text-sm font-medium uppercase tracking-[0.32em] text-white/45">Love Radar</span>
+              <span className="mt-4 block text-balance text-2xl font-semibold leading-tight text-white/90 sm:text-3xl">
+                看懂聊天里的关系信号
+              </span>
+            </h1>
+            <p className="lr-reveal mt-5 max-w-xl text-pretty text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8" style={delay(160)}>
+              粘贴聊天记录或上传截图，AI 帮你看清对方的投入度、暧昧信号和沟通模式。
+            </p>
+            <div className="lr-reveal mt-8" style={delay(240)}>
+              <Link href="/analyze" prefetch={false}>
+                <Button size="lg" className="lr-breathe w-full sm:w-auto">
+                  开始分析我的聊天记录
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </Link>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {signalCards.map((card, index) => (
-                <div
-                  key={card.title}
-                  className="lr-reveal lr-hover-lift rounded-xl border border-white/10 bg-white/[0.04] p-3"
-                  style={delay(320 + index * 70)}
-                >
-                  <card.icon className="h-4 w-4 text-primary" />
-                  <p className="mt-2 text-sm font-semibold text-white">{card.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{card.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3 lg:hidden">
-              {featureLinks.map((item) => (
-                <FeatureCard key={item.href} {...item} compact />
-              ))}
-            </div>
+            <p className="lr-reveal mt-5 flex items-center gap-2 text-xs text-muted-foreground" style={delay(320)}>
+              <ShieldCheck className="h-4 w-4 text-accent" />
+              不保存聊天原文
+            </p>
           </div>
 
-          <div className="space-y-5">
-            <div className="relative mx-auto aspect-square w-full max-w-sm lg:max-w-md">
-              <div className="absolute inset-0 rounded-full border border-primary/20 bg-primary/5" />
-              <div className="absolute inset-8 rounded-full border border-accent/20" />
-              <div className="absolute inset-16 rounded-full border border-white/10" />
-              <div className="scan-line absolute left-0 right-0 top-0 h-28 bg-gradient-to-b from-transparent via-primary/25 to-transparent" />
-              <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_32px_rgb(244_63_94)]" />
-              {chips.map((chip, index) => (
-                <span
-                  key={chip}
-                  className="absolute rounded-full border border-white/10 bg-card/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur"
-                  style={{
-                    left: `${18 + ((index * 23) % 58)}%`,
-                    top: `${14 + ((index * 17) % 66)}%`,
-                  }}
-                >
-                  {chip}
-                </span>
-              ))}
-              <div className="absolute bottom-8 left-6 right-6 rounded-lg border border-border bg-card/90 p-4 backdrop-blur">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  今日信号
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  识别敷衍、冷暴力、养鱼、情绪拉扯，并生成适合分享的风险报告。
-                </p>
-              </div>
-            </div>
-
-            <div className="hidden grid-cols-3 gap-3 lg:grid">
-              {featureLinks.map((item) => (
-                <FeatureCard key={item.href} {...item} />
-              ))}
-            </div>
+          <div className="lr-reveal relative mx-auto w-full max-w-[19rem] sm:max-w-sm" style={delay(200)}>
+            <HeroRadar bubbles={heroBubbles} />
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 pb-10 sm:gap-3 lg:grid-cols-4">
+          {signalCards.map((card, index) => (
+            <div
+              key={card.title}
+              className="lr-reveal lr-hover-lift rounded-[20px] border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur sm:p-4"
+              style={delay(380 + index * 80)}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                <card.icon className="h-4 w-4" />
+              </span>
+              <h2 className="mt-3 text-sm font-semibold text-white">{card.title}</h2>
+              <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{card.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
     </main>
-  );
-}
-
-function FeatureCard({
-  href,
-  title,
-  desc,
-  badge,
-  icon: Icon,
-  primary,
-  compact,
-}: {
-  href: string;
-  title: string;
-  desc: string;
-  badge: string;
-  icon: LucideIcon;
-  primary?: boolean;
-  compact?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      prefetch={false}
-      className={[
-        "group block rounded-lg border p-4 transition",
-        primary
-          ? "border-primary/35 bg-primary/10 hover:border-primary/60 hover:bg-primary/15"
-          : "border-border bg-card/75 hover:border-primary/35 hover:bg-card",
-        compact ? "min-h-[132px]" : "min-h-[158px]",
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 bg-background/70 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <Badge className="shrink-0 border-white/10 bg-white/5 text-muted-foreground">
-          {badge}
-        </Badge>
-      </div>
-      <h2 className="mt-4 text-base font-semibold leading-6">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
-      <div className="mt-4 flex items-center gap-2 text-sm font-medium text-primary">
-        进入
-        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-      </div>
-    </Link>
   );
 }

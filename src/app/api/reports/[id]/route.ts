@@ -22,8 +22,8 @@ export async function GET(_request: Request, context: RouteContext) {
     const englishPaywall = isDodoConfigured() || isLemonSqueezyConfigured() || Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
     return NextResponse.json({ report: englishPaywall ? redactReportForEnglish(effectiveReport) : effectiveReport });
   }
-  const paywallEnabled = Boolean(process.env.NEXT_PUBLIC_MBD_BUY_URL);
-  return NextResponse.json({ report: paywallEnabled ? redactReport(effectiveReport) : effectiveReport });
+  // 中文付费墙始终开启（兑换码解锁）。
+  return NextResponse.json({ report: redactReport(effectiveReport) });
 }
 
 export async function DELETE(request: Request, context: RouteContext) {

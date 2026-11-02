@@ -1,24 +1,9 @@
 "use client";
 
-import { type ChangeEvent, type ClipboardEvent, type FormEvent, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type ClipboardEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardPaste,
-  Image as ImageIcon,
-  Loader2,
-  LockKeyhole,
-  Radar,
-  ShieldAlert,
-  SignalHigh,
-  SignalLow,
-  SignalMedium,
-  Users,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardPaste, ImagePlus, Loader2, Radar, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   analysisModes,
   type AnalysisMode,
@@ -29,93 +14,55 @@ import {
 import { parseWechatTranscript, normalizeChatText } from "@/lib/chat-text-parser";
 import { cn } from "@/lib/utils";
 
-const maxChatImageCount = 8;
-const freeChatImageCount = 4;
-const screenshotDailyLimit = 2;
+const maxScreenshots = 4;
+const screenshotDailyLimit = 3;
 const screenshotUploadMaintenance = process.env.NEXT_PUBLIC_ENABLE_SCREENSHOT_UPLOAD === "false";
-const mianbaoduoBuyUrl = process.env.NEXT_PUBLIC_MBD_BUY_URL || "";
+const defaultMode: AnalysisMode = "comprehensive";
 
-type SpeakerChoice = {
-  selfName: string;
-  targetName: string;
-};
-
-type SampleQuality = {
-  level: "good" | "weak" | "poor";
-  label: string;
-  description: string;
-  warnings: string[];
-  suggestions: string[];
-};
+type InputMode = "text" | "image";
+type Stage = "idle" | "reading" | "analyzing";
 
 export function AnalyzeForm() {
   const router = useRouter();
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [inputMode, setInputMode] = useState<InputMode>("text");
   const [chatText, setChatText] = useState("");
-  const [mode, setMode] = useState<AnalysisMode>("comprehensive");
-  const [speakerChoice, setSpeakerChoice] = useState<SpeakerChoice | null>(null);
+  const [mode, setMode] = useState<AnalysisMode>(defaultMode);
+  const [selfName, setSelfName] = useState("");
+  const [targetName, setTargetName] = useState("");
+  const [images, setImages] = useState<File[]>([]);
+  const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState("");
-  const [ocrError, setOcrError] = useState("");
-  const [ocrLimitReached, setOcrLimitReached] = useState(false);
-  const [ocrImageName, setOcrImageName] = useState("");
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [imageParseStatus, setImageParseStatus] = useState("");
-  const [parsedMessages, setParsedMessages] = useState<ParsedChatImageMessage[] | null>(null);
-  const [lastSubmitLength, setLastSubmitLength] = useState<number | null>(null);
   const [pasteNotice, setPasteNotice] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [screenshotCode, setScreenshotCode] = useState("");
-  const [screenshotRedeemLoading, setScreenshotRedeemLoading] = useState(false);
-  const [screenshotRedeemMessage, setScreenshotRedeemMessage] = useState("");
+
   const parsedTranscript = useMemo(() => parseWechatTranscript(chatText), [chatText]);
   const analysisText = parsedTranscript.normalizedText || chatText;
   const count = analysisText.length;
   const lineCount = useMemo(() => countLines(analysisText), [analysisText]);
   const speakers = parsedTranscript.speakers;
-  const sampleQuality = useMemo(() => analyzeSampleQuality(analysisText, speakers), [analysisText, speakers]);
-  const activeSpeakerChoice =
-    speakerChoice &&
-    speakers.includes(speakerChoice.selfName) &&
-    speakers.includes(speakerChoice.targetName) &&
-    speakerChoice.selfName !== speakerChoice.targetName
-      ? speakerChoice
-      : speakers.length >= 2
-        ? { selfName: speakers[0], targetName: speakers[1] }
-        : null;
+  const busy = stage !== "idle";
 
-  const status = useMemo(() => {
-    if (count === 0) return "请粘贴聊天记录";
-    if (count < 20) return "信息偏少，AI 会返回轻量判断";
-    if (count > 30000) return "内容过长，请截取重点";
-    if (speakers.length >= 2) return "已识别双方，可以生成报告";
-    return "可以生成报告，但建议保留双方昵称";
-  }, [count, speakers.length]);
+  const previewUrls = useMemo(() => images.map((file) => URL.createObjectURL(file)), [images]);
+  useEffect(() => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)), [previewUrls]);
 
-  function resetParsedState() {
-    setParsedMessages(null);
-    setImageParseStatus("");
-    setOcrError("");
-    setOcrLimitReached(false);
-    setOcrImageName("");
-  }
+  // 角色：默认按出现最多的两个昵称；用户可以在下拉框里改。
+  const self = speakers.includes(selfName) ? selfName : speakers[0] ?? "";
+  const target = speakers.includes(targetName) && targetName !== self ? targetName : speakers.find((name) => name !== self) ?? "";
+
+  const textStatus = useMemo(() => {
+    if (count === 0) return { ok: false, text: "粘贴后会自动识别双方昵称" };
+    if (count > 30000) return { ok: false, text: "内容过长，请截取最关键的一段" };
+    if (count < 80 || lineCount < 4) return { ok: false, text: "内容偏短，建议多复制几轮" };
+    if (speakers.length > 2) return { ok: false, text: "像是群聊，建议只分析一对一聊天" };
+    if (speakers.length >= 2) return { ok: true, text: "已识别双方，可以生成" };
+    return { ok: false, text: "没识别到昵称，建议保留“昵称：内容”格式" };
+  }, [count, lineCount, speakers.length]);
 
   function updateChatText(nextText: string, notice?: string) {
-    const normalized = normalizeChatText(nextText);
-    setChatText(normalized);
-    resetParsedState();
-    if (notice) setPasteNotice(notice);
-  }
-
-  function syncEditorText(notice?: string) {
-    const nextText = normalizeChatText(editorRef.current?.innerText || "");
-    setChatText(nextText);
-    resetParsedState();
-    if (notice) setPasteNotice(notice);
-  }
-
-  function clearEditor() {
-    if (editorRef.current) editorRef.current.innerText = "";
-    updateChatText("");
+    setChatText(normalizeChatText(nextText));
+    setError("");
+    if (notice !== undefined) setPasteNotice(notice);
   }
 
   function handleEditorInput(event: FormEvent<HTMLDivElement>) {
@@ -126,671 +73,332 @@ export function AnalyzeForm() {
     const plainText = event.clipboardData.getData("text/plain");
     const htmlText = htmlToText(event.clipboardData.getData("text/html"));
     const incomingText = pickLongerText(plainText, htmlText);
-    if (incomingText) {
-      setTimeout(() => syncEditorText(`已读取到 ${incomingText.length} 字、${countLines(incomingText)} 行。`), 0);
-    } else {
-      setTimeout(() => syncEditorText(), 0);
-    }
+    setTimeout(() => {
+      updateChatText(
+        editorRef.current?.innerText || "",
+        incomingText ? `已读取 ${incomingText.length} 字、${countLines(incomingText)} 行` : "",
+      );
+    }, 0);
   }
 
-  async function handleReadClipboardAppend() {
+  async function handleReadClipboard() {
     setPasteNotice("");
     if (!navigator.clipboard?.readText) {
-      setPasteNotice("当前浏览器不支持直接读取剪贴板，请长按文本框粘贴。");
+      setPasteNotice("当前浏览器不支持读取剪贴板，请长按输入框粘贴");
       return;
     }
-
     try {
       const incomingText = normalizeChatText(await navigator.clipboard.readText());
       if (!incomingText.trim()) {
-        setPasteNotice("剪贴板里没有读到文字内容。");
+        setPasteNotice("剪贴板里没有文字");
         return;
       }
       const nextText = chatText ? `${chatText}\n${incomingText}` : incomingText;
       if (editorRef.current) editorRef.current.innerText = nextText;
-      updateChatText(
-        nextText,
-        `已从剪贴板追加 ${incomingText.length} 字、${countLines(incomingText)} 行。`,
-      );
+      updateChatText(nextText, `已追加 ${incomingText.length} 字、${countLines(incomingText)} 行`);
     } catch {
-      setPasteNotice("读取剪贴板失败。请确认浏览器允许剪贴板权限，或长按文本框粘贴。");
+      setPasteNotice("读取失败，请允许剪贴板权限，或长按输入框粘贴");
     }
   }
 
-  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
+  function clearText() {
+    if (editorRef.current) editorRef.current.innerText = "";
+    updateChatText("", "");
+  }
+
+  // 选择截图只做预览，点「生成报告」时才上传识别（不会误耗额度）。
+  function handleImagePick(event: ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(event.target.files ?? []);
     event.target.value = "";
-    if (!files.length) return;
-
-    setOcrError("");
-    setOcrLimitReached(false);
-    setImageParseStatus("");
-    setOcrImageName(files.length === 1 ? files[0].name : `${files.length} 张截图`);
-
-    if (files.length > maxChatImageCount) {
-      setOcrError(`高级截图额度每次最多上传 ${maxChatImageCount} 张。免费额度每次最多 ${freeChatImageCount} 张。`);
+    if (!picked.length) return;
+    const invalidType = picked.find((file) => !["image/png", "image/jpeg", "image/webp"].includes(file.type));
+    if (invalidType) {
+      setError("只支持 PNG、JPG、WEBP 格式的截图");
       return;
     }
-
-    for (const file of files) {
-      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-        setOcrError("只支持 PNG、JPG、WEBP 格式的聊天截图。");
-        return;
-      }
-
-      if (file.size > 8 * 1024 * 1024) {
-        setOcrError("单张图片太大，请上传 8MB 以内的聊天截图。");
-        return;
-      }
+    if (picked.some((file) => file.size > 8 * 1024 * 1024)) {
+      setError("单张截图请控制在 8MB 以内");
+      return;
     }
-
-    setOcrLoading(true);
-    try {
-      setImageParseStatus("正在压缩图片");
-      const uploadFiles = await Promise.all(files.map((file) => compressImageForUpload(file)));
-      const formData = new FormData();
-      uploadFiles.forEach((file) => formData.append("images", file));
-
-      setImageParseStatus("正在理解聊天截图");
-      const response = await fetch("/api/parse-chat-image", {
-        method: "POST",
-        body: formData,
-      });
-      const payload = (await response.json()) as { parsed?: ParsedChatImageResult; error?: string; code?: string };
-
-      if (!response.ok || !payload.parsed?.chatText?.trim()) {
-        if (
-          response.status === 429 ||
-          payload.code === "SCREENSHOT_DAILY_LIMIT_REACHED" ||
-          payload.code === "SCREENSHOT_PAID_REQUIRED"
-        ) {
-          setOcrLimitReached(true);
-        }
-        throw new Error(payload.error || "截图解析失败，请换一张更清晰的截图。");
-      }
-
-      setParsedMessages(payload.parsed.messages);
-      setChatText(normalizeChatText(payload.parsed.chatText));
-      setOcrLimitReached(false);
-      setImageParseStatus(`已解析 ${payload.parsed.messages.length} 条聊天气泡`);
-      if (payload.parsed.warnings.length) {
-        setOcrError(payload.parsed.warnings.join("；"));
-      }
-    } catch (uploadError) {
-      setOcrError(uploadError instanceof Error ? uploadError.message : "截图解析失败，请稍后重试。");
-    } finally {
-      setOcrLoading(false);
-    }
+    setError(picked.length > maxScreenshots ? `每次最多 ${maxScreenshots} 张，已保留前 ${maxScreenshots} 张` : "");
+    setImages(picked.slice(0, maxScreenshots));
   }
 
-  async function handleSubmit() {
+  function removeImage(index: number) {
+    setImages((current) => current.filter((_, i) => i !== index));
+  }
+
+  async function submitAnalysis(text: string, parsedMessages: ParsedChatImageMessage[] | null, roleContext: RoleContext) {
+    setStage("analyzing");
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatText: normalizeChatText(text), mode, roleContext, parsedMessages }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      report?: { id: string; deleteToken?: string };
+      error?: string;
+    };
+    if (!response.ok || !payload.report?.id) throw new Error(payload.error || "分析失败，请稍后重试");
+    if (payload.report.deleteToken) {
+      try {
+        localStorage.setItem(`love-radar-delete:${payload.report.id}`, payload.report.deleteToken);
+      } catch {
+        // storage unavailable
+      }
+    }
+    router.push(`/report/${payload.report.id}`);
+  }
+
+  async function handleGenerate() {
     setError("");
-    setLoading(true);
     try {
-      const roleContext: RoleContext = {
-        participants: speakers,
-        selfName: activeSpeakerChoice?.selfName,
-        targetName: activeSpeakerChoice?.targetName,
-      };
-      const normalizedChatText = normalizeChatText(analysisText);
-      setLastSubmitLength(normalizedChatText.length);
-      console.log("submit chatText length:", normalizedChatText.length);
-      console.log("submit chatText preview:", normalizedChatText.slice(0, 500));
-      const analyzeResponse = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatText: normalizedChatText, mode, roleContext, parsedMessages }),
-      });
-      const analyzePayload = (await analyzeResponse.json().catch(() => ({}))) as {
-        report?: { id: string; deleteToken?: string };
-        error?: string;
-      };
-      if (!analyzeResponse.ok || !analyzePayload.report?.id) {
-        throw new Error(analyzePayload.error || "分析失败");
-      }
-
-      if (analyzePayload.report.deleteToken) {
-        try {
-          localStorage.setItem(`love-radar-delete:${analyzePayload.report.id}`, analyzePayload.report.deleteToken);
-        } catch {
-          // storage unavailable (private mode etc.)
+      if (inputMode === "image") {
+        if (!images.length) return;
+        setStage("reading");
+        const uploadFiles = await Promise.all(images.map((file) => compressImageForUpload(file)));
+        const formData = new FormData();
+        uploadFiles.forEach((file) => formData.append("images", file));
+        const response = await fetch("/api/parse-chat-image", { method: "POST", body: formData });
+        const payload = (await response.json().catch(() => ({}))) as { parsed?: ParsedChatImageResult; error?: string };
+        if (!response.ok || !payload.parsed?.chatText?.trim()) {
+          throw new Error(payload.error || "截图识别失败，请换更清晰的截图");
         }
+        await submitAnalysis(payload.parsed.chatText, payload.parsed.messages, {
+          participants: ["我", "对方"],
+          selfName: "我",
+          targetName: "对方",
+        });
+        return;
       }
-      router.push(`/report/${analyzePayload.report.id}`);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "生成失败，请稍后重试");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleRedeemScreenshotQuota() {
-    setScreenshotRedeemMessage("");
-    const code = screenshotCode.trim().toUpperCase();
-    if (!code) {
-      setScreenshotRedeemMessage("请输入兑换码。");
-      return;
-    }
-
-    setScreenshotRedeemLoading(true);
-    try {
-      const response = await fetch("/api/redeem-screenshot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+      await submitAnalysis(analysisText, null, {
+        participants: speakers,
+        selfName: self || undefined,
+        targetName: target || undefined,
       });
-      const payload = (await response.json()) as {
-        success?: boolean;
-        error?: string;
-        remainingUses?: number;
-        maxImagesPerUse?: number;
-      };
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "兑换失败，请稍后重试。");
-      }
-
-      setOcrLimitReached(false);
-      setOcrError("");
-      setScreenshotCode("");
-      setScreenshotRedeemMessage(
-        `兑换成功，已开启 ${payload.remainingUses ?? 10} 次高级截图额度，每次最多 ${
-          payload.maxImagesPerUse ?? maxChatImageCount
-        } 张。`,
-      );
-    } catch (redeemError) {
-      setScreenshotRedeemMessage(redeemError instanceof Error ? redeemError.message : "兑换失败，请稍后重试。");
-    } finally {
-      setScreenshotRedeemLoading(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "生成失败，请稍后重试");
+      setStage("idle");
     }
   }
+
+  const canGenerate =
+    !busy && (inputMode === "image" ? images.length > 0 && !screenshotUploadMaintenance : Boolean(chatText.trim()) && count <= 30000);
+  const otherModes = analysisModes.filter((item) => item.value !== defaultMode);
+  const activeMode = analysisModes.find((item) => item.value === mode);
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-3">
-        <Badge className="border-primary/30 bg-primary/10 text-primary">DeepSeek AI 分析</Badge>
-        <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">粘贴聊天记录</h1>
-        <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-          直接粘贴微信聊天记录，AI 会基于文字内容生成恋爱雷达报告。也可以上传聊天截图，系统会先识别聊天气泡再分析。
-        </p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <a
-          href="#paste-section"
-          className="lr-hover-lift flex items-start gap-3 rounded-lg border border-primary/35 bg-primary/10 p-4 transition hover:bg-primary/15"
-        >
-          <ClipboardPaste className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <span>
-            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              粘贴文字
-              <span className="rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-normal text-primary">最准</span>
-            </span>
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">微信多选消息后复制，直接粘贴即可</span>
+    <section className="lr-reveal space-y-5 rounded-[28px] border border-white/10 bg-[#0d0a14]/80 p-5 shadow-2xl shadow-black/40 backdrop-blur">
+      <div>
+        <div className="flex items-center gap-2 text-primary">
+          <span aria-hidden="true" className="relative flex h-2 w-2">
+            <span className="lr-ping absolute inset-0 rounded-full bg-primary/70" />
+            <span className="relative h-2 w-2 rounded-full bg-primary" />
           </span>
-        </a>
-        <a
-          href="#screenshot-section"
-          className="lr-hover-lift flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
-        >
-          <ImageIcon className="mt-0.5 h-5 w-5 shrink-0 text-violet-300" />
-          <span>
-            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              上传截图
-              <span className="rounded-full border border-violet-400/30 px-2 py-0.5 text-[10px] font-normal text-violet-200">最省事</span>
-            </span>
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">自动识别聊天气泡，不用手动整理</span>
-          </span>
-        </a>
-      </div>
-
-      <div className="sticky top-0 z-20 rounded-lg border border-primary/40 bg-primary/15 p-3 shadow-[0_12px_38px_rgb(0_0_0/0.28)] backdrop-blur">
-        <div className="flex gap-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">上传前先看这里</p>
-            <p className="mt-1 text-xs leading-6 text-muted-foreground">
-              微信昵称可以保留，它有助于 AI 判断双方角色。请优先打码手机号、地址、身份证、定位、公司、学校等高敏信息。
-            </p>
-          </div>
+          <Sparkles className="h-4 w-4" />
+          <span className="text-xs tracking-[0.22em]">恋爱雷达</span>
         </div>
+        <h1 className="mt-3 text-3xl font-semibold text-white">分析聊天记录</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">粘贴微信聊天记录或上传截图，AI 帮你看清关系信号。</p>
+        <ol className="mt-4 grid grid-cols-3 gap-2 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+          {["粘贴/上传", "AI 读信号", "出报告"].map((step, index) => (
+            <li key={step} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-[10px] font-semibold text-primary">
+                {index + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Radar className="h-5 w-5 text-primary" />
-            分析模式
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {analysisModes.map((item) => (
+      <div role="tablist" aria-label="输入方式" className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+        {(
+          [
+            { value: "text", label: "粘贴文字" },
+            { value: "image", label: "上传截图" },
+          ] as const
+        ).map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={inputMode === item.value}
+            disabled={busy}
+            onClick={() => {
+              setInputMode(item.value);
+              setError("");
+            }}
+            className={cn(
+              "min-h-10 rounded-xl text-sm font-medium transition",
+              inputMode === item.value ? "bg-white/15 text-white shadow-sm" : "text-muted-foreground hover:text-white",
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={inputMode === "text" ? "space-y-2" : "hidden"}>
+        <div
+          ref={editorRef}
+          role="textbox"
+          aria-label="粘贴微信聊天记录"
+          aria-multiline="true"
+          contentEditable={!busy}
+          suppressContentEditableWarning
+          onInput={handleEditorInput}
+          onPaste={handleTextPaste}
+          data-placeholder={"在微信里多选消息 → 复制 → 粘贴到这里，例如：\n小明：最近忙吗\nLuna：还好，你怎么啦"}
+          className="min-h-[220px] w-full whitespace-pre-wrap break-words rounded-2xl border border-white/10 bg-black/30 p-4 text-sm leading-7 text-white outline-none transition empty:before:whitespace-pre-wrap empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] focus:border-primary/70"
+        />
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className={cn("flex items-center gap-1.5", textStatus.ok ? "text-accent" : "text-muted-foreground")}>
+            {textStatus.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+            {count ? `${count} 字 · ` : ""}
+            {textStatus.text}
+          </span>
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleReadClipboard}
+              disabled={busy}
+              className="inline-flex min-h-8 items-center gap-1 rounded-full border border-white/10 px-3 text-muted-foreground transition hover:text-white"
+            >
+              <ClipboardPaste className="h-3.5 w-3.5" />
+              读取剪贴板
+            </button>
+            {chatText ? (
+              <button type="button" onClick={clearText} disabled={busy} className="min-h-8 rounded-full px-3 text-muted-foreground transition hover:text-white">
+                清空
+              </button>
+            ) : null}
+          </span>
+        </div>
+        {pasteNotice ? <p className="text-xs text-muted-foreground">{pasteNotice}</p> : null}
+
+        {speakers.length >= 2 ? (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-xs text-muted-foreground">
+              <span>我是</span>
+              <select
+                value={self}
+                onChange={(event) => setSelfName(event.target.value)}
+                disabled={busy}
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white outline-none focus:border-primary/70"
+              >
+                {speakers.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">
+              <span>分析谁</span>
+              <select
+                value={target}
+                onChange={(event) => setTargetName(event.target.value)}
+                disabled={busy}
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white outline-none focus:border-primary/70"
+              >
+                {speakers
+                  .filter((name) => name !== self)
+                  .map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
+      </div>
+
+      <div className={inputMode === "image" ? "space-y-3" : "hidden"}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy || screenshotUploadMaintenance}
+          className="lr-hover-lift flex w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-accent/50 bg-accent/10 px-5 py-8 text-center text-white transition hover:bg-accent/15 disabled:opacity-60"
+        >
+          <ImagePlus className="h-8 w-8 text-accent" />
+          <span className="mt-3 text-lg font-semibold">
+            {screenshotUploadMaintenance ? "截图识别维护中" : images.length ? "重新选择截图" : "上传聊天截图"}
+          </span>
+          <span className="mt-1 text-xs leading-5 text-muted-foreground">
+            {screenshotUploadMaintenance ? "请先使用粘贴文字分析" : `按聊天顺序选择，每次最多 ${maxScreenshots} 张`}
+          </span>
+        </button>
+        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleImagePick} />
+        {images.length ? (
+          <div className="grid grid-cols-4 gap-2">
+            {previewUrls.map((url, index) => (
+              <div key={url} className="relative aspect-[9/16] overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`截图 ${index + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  aria-label={`删除截图 ${index + 1}`}
+                  onClick={() => removeImage(index)}
+                  disabled={busy}
+                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <p className="text-xs text-muted-foreground">每天可免费识别 {screenshotDailyLimit} 次截图</p>
+      </div>
+
+      <details className="group rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-muted-foreground">
+          <span>
+            分析角度：<span className="text-white">{activeMode?.label ?? "综合分析"}</span>
+          </span>
+          <span className="flex items-center gap-1 text-xs">
+            更多分析角度
+            <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[analysisModes.find((item) => item.value === defaultMode), ...otherModes]
+            .filter((item): item is (typeof analysisModes)[number] => Boolean(item))
+            .map((item) => (
               <button
                 key={item.value}
                 type="button"
                 onClick={() => setMode(item.value)}
+                disabled={busy}
                 className={cn(
-                  "rounded-md border p-3 text-left transition",
-                  mode === item.value
-                    ? "border-primary bg-primary/12 text-foreground"
-                    : "border-border bg-background/45 text-muted-foreground hover:bg-muted/60",
+                  "rounded-full border px-3 py-1.5 text-xs transition",
+                  mode === item.value ? "border-primary/60 bg-primary/15 text-white" : "border-white/10 text-muted-foreground hover:text-white",
                 )}
               >
-                <span className="block text-sm font-medium">{item.label}</span>
-                <span className="mt-1 block text-xs leading-5">{item.hint}</span>
+                {item.label}
               </button>
             ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card id="paste-section" className="scroll-mt-28">
-        <CardHeader>
-          <CardTitle>聊天记录文本</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div
-            ref={editorRef}
-            role="textbox"
-            aria-label="粘贴微信聊天记录"
-            contentEditable
-            suppressContentEditableWarning
-            onInput={handleEditorInput}
-            onPaste={handleTextPaste}
-            data-placeholder={"请粘贴微信聊天记录，建议保留双方昵称和多轮上下文，例如：\n小明：最近忙吗\nLuna：还好，你怎么啦\n小明：想问问周末要不要一起吃饭"}
-            className="min-h-[260px] w-full whitespace-pre-wrap break-words rounded-md border border-border bg-background/70 p-4 text-sm leading-7 text-foreground outline-none transition empty:before:whitespace-pre-wrap empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] focus:border-primary"
-          />
-
-          <div className="flex flex-col gap-3 text-xs text-muted-foreground">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                {count} 字 · {lineCount} 行 · {status}
-                {lastSubmitLength !== null ? ` · 上次提交 ${lastSubmitLength} 字` : ""}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={handleReadClipboardAppend}>
-                  <ClipboardPaste className="h-4 w-4" />
-                  读取剪贴板并追加
-                </Button>
-                {chatText ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      clearEditor();
-                      setLastSubmitLength(null);
-                      setPasteNotice("");
-                    }}
-                  >
-                    清空重填
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            {pasteNotice ? (
-              <span className="rounded-md border border-accent/25 bg-accent/10 p-2 text-accent">{pasteNotice}</span>
-            ) : null}
-            {chatText ? (
-              <span className="rounded-md border border-primary/25 bg-primary/10 p-2 text-primary">
-                已整理出 {parsedTranscript.messages.length} 条消息
-                {speakers.length
-                  ? ` · 默认按出现最多的昵称识别：${speakers.slice(0, 2).join("、")}`
-                  : " · 暂未稳定识别双方昵称"}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="rounded-md border border-border bg-background/45 p-3 text-xs leading-6 text-muted-foreground">
-            当前版本直接使用文字分析，不保存聊天原文。若手机长按粘贴仍只出现一条，请先点“读取剪贴板并追加”。
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card id="screenshot-section" className="scroll-mt-28 border-border/80 bg-card/75">
-        <CardHeader>
-          <CardTitle>聊天截图</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-md border border-primary/35 bg-primary/10 p-3 text-sm leading-6 text-foreground">
-            截图识别会消耗高级视觉 AI 额度。每天免费 {screenshotDailyLimit} 次，每次最多{" "}
-            {freeChatImageCount} 张；解锁高级额度后获得 10 次截图识别，每次最多 {maxChatImageCount} 张。
-            文本粘贴分析一直免费可用。
-          </div>
-          <label
-            className={cn(
-              "relative flex min-h-[180px] flex-col items-center justify-center gap-4 overflow-hidden rounded-lg border border-dashed border-border bg-muted/25 p-6 text-center transition hover:border-primary/60 hover:bg-primary/10",
-              screenshotUploadMaintenance && "cursor-not-allowed opacity-70 hover:border-border hover:bg-muted/25",
-              ocrLoading && "pointer-events-none border-primary/55 bg-primary/10",
-            )}
-          >
-            {ocrLoading ? (
-              <>
-                <span className="absolute inset-x-8 top-0 h-20 bg-gradient-to-b from-primary/20 to-transparent blur-2xl" />
-                <span className="relative flex h-20 w-20 items-center justify-center rounded-full border border-primary/30 bg-background/60">
-                  <span className="absolute h-20 w-20 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-                  <span className="absolute h-12 w-12 animate-spin rounded-full border-2 border-accent/15 border-b-accent [animation-direction:reverse]" />
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </span>
-              </>
-            ) : (
-              <span className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-background/55 text-4xl leading-none text-muted-foreground">
-                +
-              </span>
-            )}
-            <span className="space-y-2">
-              <span className="block text-base font-semibold text-foreground">
-                {ocrLoading
-                  ? imageParseStatus || "正在理解聊天截图"
-                  : screenshotUploadMaintenance
-                    ? "截图上传功能维护中"
-                    : "点击上传聊天截图"}
-              </span>
-              <span className="block text-xs leading-6 text-muted-foreground">
-                {ocrLoading
-                  ? "AI 正在识别聊天气泡和双方关系，请勿关闭页面。"
-                  : screenshotUploadMaintenance
-                    ? "当前图片识别额度维护中，请先使用上方文本粘贴分析。"
-                    : `建议上传 1-3 张清晰截图，按聊天顺序选择。免费每次最多 ${freeChatImageCount} 张，高级最多 ${maxChatImageCount} 张。`}
-              </span>
-            </span>
-            <input
-              className="sr-only"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              disabled={screenshotUploadMaintenance || ocrLoading}
-              multiple
-              onChange={handleImageUpload}
-            />
-          </label>
-
-          <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-            <span>
-              {ocrImageName ? `${ocrImageName} · ` : ""}
-              {screenshotUploadMaintenance
-                ? "截图上传维护中"
-                : `免费 ${screenshotDailyLimit} 次/天 · 免费最多 ${freeChatImageCount} 张 · 高级最多 ${maxChatImageCount} 张`}
-            </span>
-            {screenshotRedeemMessage && !ocrLimitReached ? (
-              <span className="rounded-md border border-primary/35 bg-primary/10 p-3 text-primary">
-                {screenshotRedeemMessage}
-              </span>
-            ) : null}
-            {ocrLimitReached ? (
-              <div className="rounded-lg border border-primary/35 bg-primary/10 p-4 text-foreground">
-                <div className="flex items-start gap-3">
-                  <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">今日免费截图分析次数已用完</p>
-                    <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                      截图识别需要消耗高级视觉 AI 额度。你可以继续免费使用文字分析，或购买高级体验包解锁 10 次高级截图额度，每次最多 8 张，并获得各模块深度版各一次。
-                    </p>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                      {mianbaoduoBuyUrl ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => window.open(mianbaoduoBuyUrl, "_blank", "noopener,noreferrer")}
-                        >
-                          ￥6.9 购买高级体验包
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => editorRef.current?.focus()}
-                      >
-                        继续用文字免费分析
-                      </Button>
-                    </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                      <input
-                        value={screenshotCode}
-                        onChange={(event) => setScreenshotCode(event.target.value.toUpperCase())}
-                        placeholder="输入兑换码，开启高级截图额度"
-                        className="min-h-10 rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none transition focus:border-primary"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={handleRedeemScreenshotQuota}
-                        disabled={screenshotRedeemLoading || !screenshotCode.trim()}
-                      >
-                        {screenshotRedeemLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                        兑换截图额度
-                      </Button>
-                    </div>
-                    {screenshotRedeemMessage ? (
-                      <p className="mt-2 text-xs leading-5 text-primary">{screenshotRedeemMessage}</p>
-                    ) : null}
-                    {ocrError ? <p className="mt-2 text-xs leading-5 text-muted-foreground">{ocrError}</p> : null}
-                  </div>
-                </div>
-              </div>
-            ) : ocrError ? (
-              <span className="rounded-md border border-destructive/35 bg-destructive/10 p-3 text-destructive">
-                {ocrError}
-              </span>
-            ) : imageParseStatus ? (
-              <span className="rounded-md border border-border bg-background/45 p-3">{imageParseStatus}</span>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>生成报告</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <SampleQualityCard quality={sampleQuality} count={count} speakers={speakers} />
-
-          {speakers.length >= 2 ? (
-            <div className="rounded-lg border border-accent/30 bg-accent/10 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <Users className="h-4 w-4 text-accent" />
-                识别到两位聊天对象：{speakers[0]}、{speakers[1]}。你想分析谁对谁？
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {[
-                  { selfName: speakers[0], targetName: speakers[1] },
-                  { selfName: speakers[1], targetName: speakers[0] },
-                ].map((choice) => {
-                  const active =
-                    activeSpeakerChoice?.selfName === choice.selfName &&
-                    activeSpeakerChoice?.targetName === choice.targetName;
-                  return (
-                    <button
-                      key={`${choice.selfName}-${choice.targetName}`}
-                      type="button"
-                      onClick={() => setSpeakerChoice(choice)}
-                      className={cn(
-                        "rounded-md border p-3 text-left text-sm transition",
-                        active
-                          ? "border-accent bg-accent/15 text-foreground"
-                          : "border-border bg-background/45 text-muted-foreground hover:bg-muted/60",
-                      )}
-                    >
-                      我是 <span className="font-semibold">{choice.selfName}</span>
-                      <br />
-                      分析 <span className="font-semibold">{choice.targetName}</span> 对我的态度
-                    </button>
-                  );
-                })}
-              </div>
-              {speakers.length > 2 ? (
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  还识别到：{speakers.slice(2).join("、")}。建议不要用群聊记录做关系分析，结果容易跑偏。
-                </p>
-              ) : null}
-            </div>
-          ) : count >= 20 ? (
-            <div className="rounded-md border border-border bg-background/45 p-3 text-xs leading-6 text-muted-foreground">
-              暂时没有稳定识别到两位昵称。仍可生成报告，AI 会使用“A方 / B方”做轻量判断，但建议保留双方昵称。
-            </div>
-          ) : null}
-
-          <div className="rounded-md border border-accent/25 bg-accent/10 p-3 text-xs leading-6 text-muted-foreground">
-            <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
-              <LockKeyhole className="h-4 w-4 text-accent" />
-              隐私与免责声明
-            </div>
-            本报告由 AI 生成，仅供娱乐和沟通参考，不构成心理、法律或情感决策建议。请勿上传身份证、手机号、地址、学校、公司等敏感信息。
-          </div>
-
-          {error ? (
-            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          ) : null}
-
-          <Button
-            type="button"
-            size="lg"
-            className="w-full"
-            disabled={loading || !chatText.trim() || count > 30000}
-            onClick={handleSubmit}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
-            生成报告
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function SampleQualityCard({
-  quality,
-  count,
-  speakers,
-}: {
-  quality: SampleQuality;
-  count: number;
-  speakers: string[];
-}) {
-  const Icon = quality.level === "good" ? SignalHigh : quality.level === "weak" ? SignalMedium : SignalLow;
-
-  return (
-    <div
-      className={cn(
-        "rounded-lg border p-4",
-        quality.level === "good" && "border-accent/35 bg-accent/10",
-        quality.level === "weak" && "border-primary/35 bg-primary/10",
-        quality.level === "poor" && "border-destructive/35 bg-destructive/10",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex gap-3">
-          <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">样本质量：{quality.label}</p>
-            <p className="mt-1 text-xs leading-6 text-muted-foreground">{quality.description}</p>
-          </div>
         </div>
-        <Badge className="shrink-0 border-border bg-background/60">
-          {count} 字 · {speakers.length || 0} 人
-        </Badge>
-      </div>
+      </details>
 
-      {quality.warnings.length ? (
-        <div className="mt-3 grid gap-2">
-          {quality.warnings.map((warning) => (
-            <p key={warning} className="flex gap-2 text-xs leading-5 text-muted-foreground">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              {warning}
-            </p>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-3 flex gap-2 text-xs leading-5 text-muted-foreground">
-          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
-          这份记录已经比较适合生成动态报告。
+      {error ? (
+        <p className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-sm leading-6 text-red-200">
+          <AlertTriangle className="mt-1 h-4 w-4 shrink-0" />
+          {error}
         </p>
-      )}
+      ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {quality.suggestions.map((suggestion) => (
-          <span
-            key={suggestion}
-            className="rounded-full border border-border bg-background/45 px-2.5 py-1 text-[11px] text-muted-foreground"
-          >
-            {suggestion}
-          </span>
-        ))}
+      <div className="space-y-2">
+        <Button type="button" size="lg" className={cn("w-full", canGenerate && "lr-breathe")} disabled={!canGenerate} onClick={() => void handleGenerate()}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
+          {stage === "reading" ? "正在识别截图…" : stage === "analyzing" ? "AI 正在分析…" : "生成报告"}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">聊天原文不会保存，仅用于生成本次分析</p>
       </div>
-    </div>
+    </section>
   );
-}
-
-function analyzeSampleQuality(text: string, speakers: string[]): SampleQuality {
-  const trimmed = normalizeChatText(text);
-  const messageLines = trimmed
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const warnings: string[] = [];
-  const suggestions = ["建议 20-80 条消息", "保留双方昵称", "截取关系关键上下文"];
-
-  if (!trimmed) {
-    return {
-      level: "poor",
-      label: "待上传",
-      description: "先粘贴微信聊天记录，系统会直接基于文字生成分析报告。",
-      warnings: ["还没有聊天内容。"],
-      suggestions,
-    };
-  }
-
-  if (trimmed.length < 80 || messageLines.length < 4) {
-    warnings.push("聊天样本偏短，AI 可能只能给出“信息不足”的轻量判断。");
-  }
-  if (messageLines.length < 12 && trimmed.length < 600) {
-    warnings.push("上下文较少，建议多复制几轮来回对话。");
-  }
-  if (trimmed.length > 30000) {
-    warnings.push("内容过长，建议截取最近或最关键的片段，避免报告发散。");
-  }
-  if (speakers.length === 0) {
-    warnings.push("暂未识别到稳定昵称，建议保留“昵称：内容”的格式。");
-  }
-  if (speakers.length === 1) {
-    warnings.push("看起来可能只有单方消息，关系判断会明显偏弱。");
-  }
-  if (speakers.length > 2) {
-    warnings.push("识别到超过两位发言者，可能是群聊，建议只上传一对一聊天。");
-  }
-
-  if (warnings.length === 0) {
-    return {
-      level: "good",
-      label: "样本较好",
-      description: "有双方角色和足够上下文，适合生成更具体的证据和建议。",
-      warnings,
-      suggestions,
-    };
-  }
-
-  if (trimmed.length >= 120 && warnings.length <= 2) {
-    return {
-      level: "weak",
-      label: "可分析但偏弱",
-      description: "可以先跑一版，但补充更多上下文会让分数、标签和证据更准。",
-      warnings,
-      suggestions,
-    };
-  }
-
-  return {
-    level: "poor",
-    label: "建议补充",
-    description: "当前样本容易让 AI 只能泛泛判断，最好补齐双方多轮对话。",
-    warnings,
-    suggestions,
-  };
 }
 
 function htmlToText(html: string) {
