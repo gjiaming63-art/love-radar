@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Ban, Footprints, Loader2, LockKeyhole, ShieldCheck, TrendingUp } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Footprints, Loader2, LockKeyhole, MessageSquareQuote, Share2, ShieldCheck, TrendingUp } from "lucide-react";
+import { RadarChart } from "@/components/radar/radar-chart";
 import { ReportActions } from "@/components/radar/report-actions";
 import { SaveReportButton } from "@/components/radar/save-report-button";
 import { Badge } from "@/components/ui/badge";
@@ -13,26 +14,27 @@ import {
   EvidenceBubble,
   NextStepGrid,
   SectionHeading,
+  SignalGrid,
   VerdictHero,
 } from "@/components/radar/report-visuals";
-import { getReportInsight } from "@/lib/report-insights";
+import { getChatSpotlights, getRelationshipMeters, getReportInsight } from "@/lib/report-insights";
+import type { LockedCounts } from "@/lib/reports";
 import type { LoveReport } from "@/types/report";
-import { scoreLabels } from "@/types/report";
 
 type ReportWithId = LoveReport & { id: string };
 
 /**
- * 中文报告页：结论 → 信号 → 证据 → 下一步 → 兑换码解锁 → 完整内容。
+ * 中文报告页（版式对齐英文站）：结论 → 信号 → 证据 → 下一步 → 兑换码解锁 → 完整内容。
  * 付费墙始终开启；免费版的数据已在服务器端裁剪（见 redactReport）。
  */
-export function ReportView({ initialReport }: { initialReport: ReportWithId }) {
+export function ReportView({ initialReport, lockedCounts }: { initialReport: ReportWithId; lockedCounts?: LockedCounts }) {
   const [report, setReport] = useState<ReportWithId>(initialReport);
   const unlocked = Boolean(report.isPaid);
   const insight = getReportInsight(report);
+  const meters = getRelationshipMeters(report);
+  const spotlights = getChatSpotlights(report);
   const plan = report.actionPlan;
-  // 关键证据只放第一条红旗 / 绿旗；其余在「完整报告 · 更多证据」里，避免重复。
-  const redFlags = report.redFlags.slice(0, 1);
-  const greenFlags = report.greenFlags.slice(0, 1);
+  const firstReply = plan.nextReplies[0]?.text || report.replyExamples[0];
 
   useEffect(() => {
     try {
@@ -44,7 +46,7 @@ export function ReportView({ initialReport }: { initialReport: ReportWithId }) {
 
   return (
     <main className="min-h-svh px-4 pb-10 pt-3">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-5xl">
         <AnchorNav
           items={[
             { id: "verdict", label: "结论" },
@@ -53,55 +55,59 @@ export function ReportView({ initialReport }: { initialReport: ReportWithId }) {
             { id: "next", label: "下一步" },
           ]}
         />
-        <Link
-          href="/analyze"
-          prefetch={false}
-          className="mb-4 inline-flex min-h-9 items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          重新分析
-        </Link>
+        <div className="mb-4 flex items-center justify-between">
+          <Link href="/analyze" prefetch={false} className="inline-flex min-h-9 items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            重新分析
+          </Link>
+          <Link href="/me" prefetch={false} className="min-h-9 py-2 text-sm text-primary">
+            我的
+          </Link>
+        </div>
 
         <div className="space-y-7">
           <VerdictHero
             badges={
               <>
                 <Badge className="border-primary/30 bg-primary/10 text-primary">恋爱雷达报告</Badge>
-                {unlocked ? <Badge className="border-accent/30 bg-accent/10 text-accent">完整版</Badge> : null}
+                <Badge>{report.riskLevel}</Badge>
+                {unlocked ? (
+                  <Badge className="border-accent/30 bg-accent/10 text-accent">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    完整版
+                  </Badge>
+                ) : null}
               </>
             }
             score={report.overallScore}
             scoreLabel="综合评分"
             facts={[
               { label: "关系阶段", value: report.relationshipStage },
-              { label: "关系走势", value: report.relationshipTrend.label },
+              { label: "关系类型", value: insight.type },
+              { label: "当前走势", value: report.relationshipTrend.label },
             ]}
             verdict={insight.verdict}
-            keywords={report.riskTags.slice(0, 3)}
+            keywords={report.riskTags.slice(0, 5)}
+            radar={<RadarChart scores={report.scores} className="max-w-64" />}
           />
 
           <section className="space-y-3">
             <SectionHeading id="signals" eyebrow="Signals" title="关系信号" />
-            <ScoreBars report={report} />
+            <SignalGrid meters={meters} />
+            <p className="text-xs text-muted-foreground">分数是 AI 基于这段聊天的估计，仅供娱乐和自我参考，不代表对方的真实想法。</p>
           </section>
 
           <section className="space-y-3">
-            <SectionHeading id="evidence" eyebrow="Evidence" title="关键证据" />
-            <div className="grid gap-3 sm:grid-cols-2">
-              {redFlags.map((item, index) => (
-                <EvidenceBubble key={`r-${index}`} tone="risk" title="红旗" quote={item.quote} reason={item.reason} moreLabel="为什么" />
+            <SectionHeading id="evidence" eyebrow="Evidence" title="聊天里的关键瞬间" />
+            <div className="grid gap-3 lg:grid-cols-3">
+              {spotlights.map((item) => (
+                <EvidenceBubble key={`${item.title}-${item.quote}`} tone={item.tone} title={item.title} quote={item.quote} reason={item.note} moreLabel="为什么" />
               ))}
-              {greenFlags.map((item, index) => (
-                <EvidenceBubble key={`g-${index}`} tone="safe" title="绿旗" quote={item.quote} reason={item.reason} moreLabel="为什么" />
-              ))}
-              {!redFlags.length && !greenFlags.length ? (
-                <p className="text-sm text-muted-foreground">这段聊天里暂时没有明显的证据句。</p>
-              ) : null}
             </div>
           </section>
 
           <section className="space-y-3">
-            <SectionHeading id="next" eyebrow="Next" title="下一步" />
+            <SectionHeading id="next" eyebrow="Next" title="下一步怎么做" />
             <NextStepGrid
               items={[
                 {
@@ -116,44 +122,62 @@ export function ReportView({ initialReport }: { initialReport: ReportWithId }) {
                   icon: <Ban className="h-4 w-4" />,
                   body: plan.dontDo[0] || "不要连续追问，也不要用试探逼对方表态。",
                 },
+                {
+                  tone: "neutral",
+                  title: "下一句怎么回",
+                  icon: <MessageSquareQuote className="h-4 w-4" />,
+                  body:
+                    unlocked && firstReply ? (
+                      <>“{firstReply}”</>
+                    ) : (
+                      <a href="#unlock" className="flex items-start gap-2 text-muted-foreground">
+                        <LockKeyhole className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                        解锁完整报告，查看为这段聊天写好的回复。
+                      </a>
+                    ),
+                },
               ]}
             />
+            {unlocked ? null : <RedeemCard reportId={report.id} onUnlocked={setReport} />}
           </section>
 
-          {unlocked ? <FullReport report={report} /> : <RedeemCard reportId={report.id} onUnlocked={setReport} />}
+          {unlocked ? (
+            <FullReport report={report} />
+          ) : (
+            <section className="space-y-3">
+              <SectionHeading id="details" eyebrow="Full report" title="完整报告里有什么" />
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  "完整行为模式分析",
+                  lockedCounts?.redFlags ? `全部 ${lockedCounts.redFlags} 条红旗及原因` : "全部红旗及原因",
+                  lockedCounts?.greenFlags ? `全部 ${lockedCounts.greenFlags} 条绿旗及原因` : "全部绿旗及原因",
+                  lockedCounts?.suggestions ? `${lockedCounts.suggestions} 条建议和应对策略` : "完整建议和应对策略",
+                  lockedCounts?.replies ? `${lockedCounts.replies} 条可直接复制的回复` : "可直接复制的回复话术",
+                ].map((item) => (
+                  <a
+                    key={item}
+                    href="#unlock"
+                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-muted-foreground transition hover:border-primary/40"
+                  >
+                    <LockKeyhole className="h-4 w-4 shrink-0 text-primary" />
+                    <span>{item}</span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <SaveReportButton reportId={report.id} />
           </div>
 
-          <p className="text-center text-xs text-muted-foreground">AI 生成，仅供娱乐和沟通参考</p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>AI 生成，仅供娱乐和沟通参考</span>
+            <Share2 className="h-4 w-4" />
+          </div>
         </div>
       </div>
     </main>
-  );
-}
-
-function ScoreBars({ report }: { report: LoveReport }) {
-  return (
-    <div className="grid gap-x-6 gap-y-3 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 sm:grid-cols-2">
-      {scoreLabels.map((item) => {
-        const value = report.scores[item.key];
-        return (
-          <div key={item.key}>
-            <div className="mb-1.5 flex justify-between text-sm">
-              <span className="text-muted-foreground">{item.label}</span>
-              <span className="font-semibold tabular-nums text-foreground">{value}</span>
-            </div>
-            <div className="h-1.5 rounded-full bg-white/10">
-              <div
-                className={item.highMeansRisk ? "h-1.5 rounded-full bg-primary" : "h-1.5 rounded-full bg-accent"}
-                style={{ width: `${value}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -188,13 +212,14 @@ function RedeemCard({ reportId, onUnlocked }: { reportId: string; onUnlocked: (r
 
   return (
     <section id="unlock" className="scroll-mt-16 rounded-[28px] border border-primary/30 bg-gradient-to-br from-primary/15 to-accent/10 p-5">
-      <div className="flex items-center gap-2 text-primary">
-        <LockKeyhole className="h-5 w-5" />
-        <h2 className="text-lg font-semibold text-foreground">解锁完整报告</h2>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        全部证据、完整行为分析、可直接复制的回复话术，以及对方不同反应时怎么办。
-      </p>
+      <LockKeyhole className="h-5 w-5 text-primary" />
+      <h2 className="mt-3 text-xl font-semibold">看看下一句该怎么回</h2>
+      <ul className="mt-3 space-y-1 text-sm leading-6 text-muted-foreground">
+        <li>• 为这段聊天写好、可直接复制的回复</li>
+        <li>• 「如果 TA 这样，你就这样」的应对方案</li>
+        <li>• 全部红旗和绿旗，不只是最明显的那条</li>
+        <li>• 最容易把对方推远的几个错误</li>
+      </ul>
       <form
         className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]"
         onSubmit={(event) => {
@@ -224,7 +249,6 @@ function RedeemCard({ reportId, onUnlocked }: { reportId: string; onUnlocked: (r
 function FullReport({ report }: { report: ReportWithId }) {
   const plan = report.actionPlan;
   const confidence = report.confidence;
-  const moreEvidence = Math.max(0, report.redFlags.length - 1) + Math.max(0, report.greenFlags.length - 1);
 
   return (
     <section className="space-y-3">
@@ -235,16 +259,14 @@ function FullReport({ report }: { report: ReportWithId }) {
         {report.summary ? <p className="text-sm leading-7 text-muted-foreground">{report.summary}</p> : null}
       </DetailFold>
 
-      {moreEvidence ? (
-      <DetailFold title="更多证据" count={moreEvidence}>
-        {report.redFlags.slice(1).map((item, index) => (
+      <DetailFold title="全部证据" count={report.redFlags.length + report.greenFlags.length}>
+        {report.redFlags.map((item, index) => (
           <EvidenceBubble key={`fr-${index}`} tone="risk" title="红旗" quote={item.quote} reason={item.reason} meta={`证据${item.strength || "中"}`} moreLabel="为什么" />
         ))}
-        {report.greenFlags.slice(1).map((item, index) => (
+        {report.greenFlags.map((item, index) => (
           <EvidenceBubble key={`fg-${index}`} tone="safe" title="绿旗" quote={item.quote} reason={item.reason} meta={`证据${item.strength || "中"}`} moreLabel="为什么" />
         ))}
       </DetailFold>
-      ) : null}
 
       <DetailFold title="回复话术" count={plan.nextReplies.length + report.replyExamples.length}>
         {plan.nextReplies.map((reply, index) => (
